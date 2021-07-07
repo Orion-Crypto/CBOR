@@ -1,60 +1,40 @@
-<Project Sdk='Microsoft.NET.Sdk'>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version>4.4.2</Version>
+    <Version>0.1.0</Version>
     <Owners>Peter Occil</Owners>
-    <Description>A C# implementation of Concise Binary Object Representation (CBOR), a general-purpose binary data format defined in RFC 8949.</Description>
+    <Description></Description>
     <Summary>A C# implementation of Concise Binary Object Representation (CBOR), a general-purpose binary data format defined in RFC 8949. </Summary>
-    <Copyright>2021. Written by Peter O.  Any copyright to this work is released to the Public Domain.  In case this is not possible, this work is also released under Creative Commons Zero (CC0).</Copyright>
-    <Authors>Peter Occil</Authors>
-    <PackageId>PeterO.Cbor2</PackageId>
+    <Copyright></Copyright>
+    <Authors>CardanoSharp</Authors>
+    <PackageId>CardanoSharp.CBOR</PackageId>
     <PackageLicenseExpression>CC0-1.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/peteroupc/CBOR</PackageProjectUrl>
-    <PackageReleaseNotes>
-Version 4.4.2:
-
-- Performance improvements in some cases, especially involving date/time conversions
-- Error checks in DateTimeFieldsToCBORObject method in CBORDateConverter
-- Bug fixes
-
-Version 4.4.1:
-
-- Fix bugs when parsing JSON with the JSON option 'numberconversion=double'
-
-Version 4.4:
-
-- Boolean constructors of PODOptions and CBOREncodeOptions were obsolete
-- Float64 option of CBOREncodeOptions for encoding floating-point values as 64-bit only
-- CBORDateConverter made public and expanded to enable conversion between various
-  date/time formats and CBOR objects
-- Added CanFitInUInt64 and CanTruncatedIntFitInUInt64 methods
-- Bug fixes
-
-</PackageReleaseNotes>
-    <PackageTags>cbor data serialization binary json</PackageTags>
+    <PackageProjectUrl>https://github.com/CardanoSharp/CBOR</PackageProjectUrl>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageTags></PackageTags>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>PeterO.snk</AssemblyOriginatorKeyFile>
     <Title>CBOR (Concise Binary Object Representation)</Title>
     <PackOnBuild>true</PackOnBuild>
-  <CodeAnalysisRuleSet>rules.ruleset</CodeAnalysisRuleSet><PackageLicenseExpression>CC0-1.0</PackageLicenseExpression></PropertyGroup>
+  <CodeAnalysisRuleSet>rules.ruleset</CodeAnalysisRuleSet><PackageLicenseExpression></PackageLicenseExpression><Product>CardanoSharp.CBOR</Product></PropertyGroup>
 
-  <PropertyGroup Condition=' &apos;$(Configuration)&apos;==&apos;Debug&apos; '>
+  <PropertyGroup Condition=" '$(Configuration)'=='Debug' ">
     <DocumentationFile>bin\Debug\netstandard1.0\CBOR.xml</DocumentationFile>
 
   <CodeAnalysisRuleSet>rules.ruleset</CodeAnalysisRuleSet></PropertyGroup>
-  <PropertyGroup Condition=' &apos;$(Configuration)&apos;==&apos;Release&apos; '>
-    <DebugType/>
+  <PropertyGroup Condition=" '$(Configuration)'=='Release' ">
+    <DebugType />
     <DocumentationFile>bin\Release\netstandard1.0\CBOR.xml</DocumentationFile>
 
   <CodeAnalysisRuleSet>rules.ruleset</CodeAnalysisRuleSet></PropertyGroup>
   <ItemGroup>
 
-  <PackageReference Include='StyleCop.Analyzers' PrivateAssets='All' Version='1.2.0-beta.333'/>
- <AdditionalFiles Include='stylecop.json'/>
-<AdditionalFiles Include='rules.ruleset'/><PackageReference Include='PeterO.URIUtility' Version='1.0.0'/>
+  <PackageReference Include="StyleCop.Analyzers" PrivateAssets="All" Version="1.2.0-beta.333" />
+ <AdditionalFiles Include="stylecop.json" />
+<AdditionalFiles Include="rules.ruleset" /><PackageReference Include="PeterO.URIUtility" Version="1.0.0" />
 
-<PackageReference Include='PeterO.Numbers' Version='1.7.4'/>
-<PackageReference Include='Microsoft.CodeAnalysis.NetAnalyzers' PrivateAssets='All' Version='5.0.3'/></ItemGroup>
+<PackageReference Include="PeterO.Numbers" Version="1.7.4" />
+<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" PrivateAssets="All" Version="5.0.3" /></ItemGroup>
                   </Project>
