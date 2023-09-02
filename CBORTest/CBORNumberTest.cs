@@ -79,8 +79,9 @@ namespace Test {
       Assert.IsTrue(CBORObject.FromObject(99.0).AsNumber().CanFitInUInt64(),
         "99.0");
 
-      Assert.IsTrue(CBORObject.FromObject(1.0).AsNumber().CanFitInUInt64(),
-  "99.0");
+      Assert.IsTrue(
+        CBORObject.FromObject(1.0).AsNumber().CanFitInUInt64(),
+        "99.0");
 
       Assert.IsTrue(CBORObject.FromObject(-0.0).AsNumber().CanFitInUInt64(),
         "-0.0");
@@ -89,14 +90,16 @@ namespace Test {
           EInteger.FromInt32(1).ShiftLeft(65)).AsNumber().CanFitInUInt64();
       Assert.IsFalse(b);
 
-      Assert.IsFalse(CBORObject.FromObject(-99).AsNumber().CanFitInUInt64(),
-  "-99");
+      Assert.IsFalse(
+        CBORObject.FromObject(-99).AsNumber().CanFitInUInt64(),
+        "-99");
 
       Assert.IsFalse(CBORObject.FromObject(-99.0).AsNumber().CanFitInUInt64(),
         "-99.0");
 
-      Assert.IsFalse(CBORObject.FromObject(0.1).AsNumber().CanFitInUInt64(),
-  "0.1");
+      Assert.IsFalse(
+        CBORObject.FromObject(0.1).AsNumber().CanFitInUInt64(),
+        "0.1");
       Assert.IsFalse(CBORObject.FromObject(-0.1).AsNumber().CanFitInUInt64());
       Assert.IsFalse(CBORObject.FromObject(99.1).AsNumber().CanFitInUInt64());
       Assert.IsFalse(CBORObject.FromObject(-99.1).AsNumber().CanFitInUInt64());
@@ -553,13 +556,6 @@ namespace Test {
         Assert.AreEqual(objectTemp, objectTemp2);
       }
       {
-        string stringTemp = ToObjectTest.TestToFromObjectRoundTrip(
-            Single.NaN).AsNumber().ToEDecimal().ToString();
-        Assert.AreEqual(
-          "NaN",
-          stringTemp);
-      }
-      {
         object objectTemp = CBORTestCommon.DecPosInf;
         object objectTemp2 =
           ToObjectTest.TestToFromObjectRoundTrip(Double.PositiveInfinity)
@@ -574,12 +570,15 @@ namespace Test {
         Assert.AreEqual(objectTemp, objectTemp2);
       }
       {
-        object objectTemp = "NaN";
-        object objectTemp2 =
+        bool bo = ToObjectTest.TestToFromObjectRoundTrip(
+            Double.NaN).AsNumber().ToEDecimal().IsNaN();
+        Assert.IsTrue(bo);
+      }
+      {
+        bool bo =
           ToObjectTest.TestToFromObjectRoundTrip(
-            Double.NaN).AsNumber().ToEDecimal()
-          .ToString();
-        Assert.AreEqual(objectTemp, objectTemp2);
+            Single.NaN).AsNumber().ToEDecimal().IsNaN();
+        Assert.IsTrue(bo);
       }
       try {
         CBORObject.NewArray().AsNumber().ToEDecimal();

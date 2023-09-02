@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections.Generic;
@@ -111,7 +110,29 @@ obj.Untag().ToJSONString()));
           sb = sb == null ? new StringBuilder() : sb;
           sb.Append('\"');
           string ostring = obj.AsString();
-          sb.Append(ostring);
+          int length = ostring.Length;
+          for (var i = 0; i < length; ++i) {
+            int cp = DataUtilities.CodePointAt(ostring, i, 0);
+            if (cp >= 0x10000) {
+              sb.Append("\\U");
+              sb.Append(HexAlphabet[(cp >> 20) & 15]);
+              sb.Append(HexAlphabet[(cp >> 16) & 15]);
+              sb.Append(HexAlphabet[(cp >> 12) & 15]);
+              sb.Append(HexAlphabet[(cp >> 8) & 15]);
+              sb.Append(HexAlphabet[(cp >> 4) & 15]);
+              sb.Append(HexAlphabet[cp & 15]);
+              ++i;
+            } else if (cp >= 0x7F || cp < 0x20 || cp == (int)'\\' || cp ==
+(int)'\"') {
+              sb.Append("\\u");
+              sb.Append(HexAlphabet[(cp >> 12) & 15]);
+              sb.Append(HexAlphabet[(cp >> 8) & 15]);
+              sb.Append(HexAlphabet[(cp >> 4) & 15]);
+              sb.Append(HexAlphabet[cp & 15]);
+            } else {
+              sb.Append((char)cp);
+            }
+          }
           sb.Append('\"');
           break;
         }

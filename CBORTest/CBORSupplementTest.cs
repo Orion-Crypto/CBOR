@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.IO;
@@ -351,7 +350,7 @@ namespace Test {
       cbor.Add(cbor);
       cbor[0].Add(cbor);
       try {
-        using (var memoryStream = new MemoryStream()) {
+        using (var memoryStream = new Test.DelayingStream()) {
           cbor.WriteTo(memoryStream);
         }
         Assert.Fail("Should have failed");
@@ -367,7 +366,7 @@ namespace Test {
     public void TestNestingDepth() {
       try {
         {
-          using (var ms = new MemoryStream()) {
+          using (var ms = new Test.DelayingStream()) {
             for (var i = 0; i < 2000; ++i) {
               // Write beginning of indefinite-length array
               ms.WriteByte((byte)0x9f);
@@ -390,7 +389,7 @@ namespace Test {
           }
         }
         {
-          using (var ms = new MemoryStream()) {
+          using (var ms = new Test.DelayingStream()) {
             for (var i = 0; i < 495; ++i) {
               // Write beginning of indefinite-length array
               ms.WriteByte((byte)0x9f);
@@ -668,7 +667,7 @@ namespace Test {
       byte[] bytes;
       bytes = new byte[] { 0x19, 2 };
       try {
-        using (var memoryStream = new MemoryStream(bytes)) {
+        using (var memoryStream = new Test.DelayingStream(bytes)) {
           MiniCBOR.ReadInt32(memoryStream);
         }
         Assert.Fail("Should have failed");
@@ -680,7 +679,7 @@ namespace Test {
       }
       bytes = new byte[] { 0x1a, 2 };
       try {
-        using (var memoryStream = new MemoryStream(bytes)) {
+        using (var memoryStream = new Test.DelayingStream(bytes)) {
           MiniCBOR.ReadInt32(memoryStream);
         }
         Assert.Fail("Should have failed");
@@ -692,7 +691,7 @@ namespace Test {
       }
       bytes = new byte[] { 0x1b, 2 };
       try {
-        using (var ms = new MemoryStream(bytes)) {
+        using (var ms = new Test.DelayingStream(bytes)) {
           MiniCBOR.ReadInt32(ms);
         }
         Assert.Fail("Should have failed");
@@ -704,7 +703,7 @@ namespace Test {
       }
       bytes = new byte[] { 0x1b, 2, 2, 2, 2, 2, 2, 2, 2 };
       try {
-        using (var memoryStream = new MemoryStream(bytes)) {
+        using (var memoryStream = new Test.DelayingStream(bytes)) {
           MiniCBOR.ReadInt32(memoryStream);
         }
         Assert.Fail("Should have failed");
@@ -716,7 +715,7 @@ namespace Test {
       }
       bytes = new byte[] { 0x1c, 2 };
       try {
-        using (var memoryStream = new MemoryStream(bytes)) {
+        using (var memoryStream = new Test.DelayingStream(bytes)) {
           MiniCBOR.ReadInt32(memoryStream);
         }
         Assert.Fail("Should have failed");
@@ -726,27 +725,27 @@ namespace Test {
       }
       try {
         bytes = new byte[] { 0 };
-        using (var ms = new MemoryStream(bytes)) {
+        using (var ms = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(0, MiniCBOR.ReadInt32(ms));
         }
         bytes = new byte[] { 0x17 };
-        using (var ms2 = new MemoryStream(bytes)) {
+        using (var ms2 = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(0x17, MiniCBOR.ReadInt32(ms2));
         }
         bytes = new byte[] { 0x18, 2 };
-        using (var ms3 = new MemoryStream(bytes)) {
+        using (var ms3 = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(2, MiniCBOR.ReadInt32(ms3));
         }
         bytes = new byte[] { 0x19, 0, 2 };
-        using (var ms4 = new MemoryStream(bytes)) {
+        using (var ms4 = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(2, MiniCBOR.ReadInt32(ms4));
         }
         bytes = new byte[] { 0x27 };
-        using (var ms5 = new MemoryStream(bytes)) {
+        using (var ms5 = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(-1 - 7, MiniCBOR.ReadInt32(ms5));
         }
         bytes = new byte[] { 0x37 };
-        using (var ms6 = new MemoryStream(bytes)) {
+        using (var ms6 = new Test.DelayingStream(bytes)) {
           Assert.AreEqual(-1 - 0x17, MiniCBOR.ReadInt32(ms6));
         }
       } catch (IOException ioex) {
@@ -866,6 +865,22 @@ namespace Test {
   "[\"abcd\",\"aa\",\"abcd\",\"abcd\",\"bbcd\",\"bbcd\",\"abcd\",\"bbcd\"]";
       Assert.AreEqual(expected, cbor.ToJSONString());
     }
+
+[Test]
+public void TestPodCompareTo() {
+  var cpod = new CPOD3();
+  CBORObject cbor, cbor2;
+  cpod.Aa = "Gg";
+  cpod.Bb = "Jj";
+  cpod.Cc = "Hh";
+  cbor = CBORObject.FromObject(cpod);
+  cbor2 = CBORObject.NewMap().Add("aa", "Gg").Add("bb", "Jj").Add("cc", "Hh");
+  TestCommon.CompareTestEqual(cbor, cbor2);
+  cbor2 = CBORObject.FromObject(100);
+  TestCommon.CompareTestGreater(cbor, cbor2);
+  cbor2 = CBORObject.FromSimpleValue(10);
+  TestCommon.CompareTestLess(cbor, cbor2);
+}
 
     [Test]
     public void TestCPOD() {

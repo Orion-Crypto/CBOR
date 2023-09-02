@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections.Generic;
@@ -262,10 +261,6 @@ namespace PeterO.Cbor {
       if (type == CBORObjectTypeArray && !(item is IList<CBORObject>)) {
         throw new InvalidOperationException();
       }
-      // if (type == CBORObjectTypeTextStringUtf8 &&
-      // !CBORUtilities.CheckUtf8((byte[])item)) {
-      // throw new InvalidOperationException();
-      // }
       #endif
       this.itemtypeValue = type;
       this.itemValue = item;
@@ -622,7 +617,8 @@ namespace PeterO.Cbor {
     /// <returns>The CBOR object referred to by index or key in this array
     /// or map. If this is a CBOR map, returns <c>null</c> (not
     /// <c>CBORObject.Null</c> ) if an item with the given key doesn't
-    /// exist.</returns>
+    /// exist (but this behavior may change to throwing an exception in
+    /// version 5.0 or later).</returns>
     /// <exception cref='InvalidOperationException'>This object is not an
     /// array or map.</exception>
     /// <exception cref='ArgumentException'>This object is an array and the
@@ -641,7 +637,10 @@ namespace PeterO.Cbor {
         if (this.Type == CBORType.Map) {
           IDictionary<CBORObject, CBORObject> map = this.AsMap();
           CBORObject key = CBORObject.FromObject(index);
-          return (!map.ContainsKey(key)) ? null : map[key];
+          // TODO: In next major version, consider throwing an exception
+          // instead if key does not exist.
+          return (!map.TryGetValue(key, out CBORObject cborObj)) ? null :
+cborObj;
         }
         throw new InvalidOperationException("Not an array or map");
       }
@@ -745,7 +744,8 @@ namespace PeterO.Cbor {
         }
         if (this.Type == CBORType.Map) {
           IDictionary<CBORObject, CBORObject> map = this.AsMap();
-          return (!map.ContainsKey(key)) ? null : map[key];
+          return (!map.TryGetValue(key, out CBORObject cborObj)) ? null :
+cborObj;
         }
         if (this.Type == CBORType.Array) {
           if (!key.IsNumber || !key.AsNumber().IsInteger()) {
@@ -766,7 +766,7 @@ namespace PeterO.Cbor {
 
       set {
         if (key == null) {
-          throw new ArgumentNullException(nameof(value));
+          throw new ArgumentNullException(nameof(key));
         }
         if (value == null) {
           throw new ArgumentNullException(nameof(value));
@@ -815,7 +815,7 @@ namespace PeterO.Cbor {
 
       set {
         if (key == null) {
-          throw new ArgumentNullException(nameof(value));
+          throw new ArgumentNullException(nameof(key));
         }
         if (value == null) {
           throw new ArgumentNullException(nameof(value));
@@ -1648,93 +1648,97 @@ namespace PeterO.Cbor {
     /// <item>If the type is a one-dimensional or multidimensional array
     /// type and this CBOR object is an array, returns an array containing
     /// the items in this CBOR object.</item>
-    ///  <item>If the type is List or
-    /// the generic or non-generic IList, ICollection, or IEnumerable, (or
+    ///  <item>If the type is List,
+    /// ReadOnlyCollection or the generic or non-generic IList,
+    /// ICollection, IEnumerable, IReadOnlyCollection, or IReadOnlyList (or
     /// ArrayList, List, Collection, or Iterable in Java), and if this CBOR
     /// object is an array, returns an object conforming to the type,
     /// class, or interface passed to this method, where the object will
     /// contain all items in this CBOR array.</item>
     ///  <item>If the type is
-    /// Dictionary or the generic or non-generic IDictionary (or HashMap or
-    /// Map in Java), and if this CBOR object is a map, returns an object
-    /// conforming to the type, class, or interface passed to this method,
-    /// where the object will contain all keys and values in this CBOR
-    /// map.</item>
-    ///  <item>If the type is an enumeration constant ("enum"),
-    /// and this CBOR object is an integer or text string, returns the
-    /// enumeration constant with the given number or name, respectively.
-    /// (Enumeration constants made up of multiple enumeration constants,
-    /// as allowed by .NET, can only be matched by number this way.)</item>
-    /// <item>If the type is <c>DateTime</c>
+    /// Dictionary, ReadOnlyDictionary or the generic or non-generic
+    /// IDictionary or IReadOnlyDictionary (or HashMap or Map in Java), and
+    /// if this CBOR object is a map, returns an object conforming to the
+    /// type, class, or interface passed to this method, where the object
+    /// will contain all keys and values in this CBOR map.</item>
+    ///  <item>If
+    /// the type is an enumeration constant ("enum"), and this CBOR object
+    /// is an integer or text string, returns the enumeration constant with
+    /// the given number or name, respectively. (Enumeration constants made
+    /// up of multiple enumeration constants, as allowed by .NET, can only
+    /// be matched by number this way.)</item>
+    ///  <item>If the type is
+    /// <c>DateTime</c>
     ///  (or <c>Date</c>
-    ///  in Java) ,
-    /// returns a date/time object if the CBOR object's outermost tag is 0
-    /// or 1. For tag 1, this method treats the CBOR object as a number of
-    /// seconds since the start of 1970, which is based on the POSIX
-    /// definition of "seconds since the Epoch", a definition that does not
-    /// count leap seconds. In this method, this number of seconds assumes
-    /// the use of a proleptic Gregorian calendar, in which the rules
-    /// regarding the number of days in each month and which years are leap
-    /// years are the same for all years as they were in 1970 (including
-    /// without regard to time zone differences or transitions from other
-    /// calendars to the Gregorian). The string format used in tag 0
-    /// supports only years up to 4 decimal digits long. For tag 1, CBOR
-    /// objects that express infinity or not-a-number (NaN) are treated as
-    /// invalid by this method. This default behavior for <c>DateTime</c>
-    /// and <c>Date</c>
-    ///  can be changed by passing a suitable CBORTypeMapper
-    /// to this method, such as a CBORTypeMapper that registers a
-    /// CBORDateConverter for <c>DateTime</c>
+    ///  in Java) , returns a date/time
+    /// object if the CBOR object's outermost tag is 0 or 1. For tag 1,
+    /// this method treats the CBOR object as a number of seconds since the
+    /// start of 1970, which is based on the POSIX definition of "seconds
+    /// since the Epoch", a definition that does not count leap seconds. In
+    /// this method, this number of seconds assumes the use of a proleptic
+    /// Gregorian calendar, in which the rules regarding the number of days
+    /// in each month and which years are leap years are the same for all
+    /// years as they were in 1970 (including without regard to time zone
+    /// differences or transitions from other calendars to the Gregorian).
+    /// The string format used in tag 0 supports only years up to 4 decimal
+    /// digits long. For tag 1, CBOR objects that express infinity or
+    /// not-a-number (NaN) are treated as invalid by this method. This
+    /// default behavior for <c>DateTime</c>
+    ///  and <c>Date</c>
+    ///  can be changed
+    /// by passing a suitable CBORTypeMapper to this method, such as a
+    /// CBORTypeMapper that registers a CBORDateConverter for
+    /// <c>DateTime</c>
     ///  or <c>Date</c>
-    ///  objects. See
-    /// the examples.</item>
-    ///  <item>If the type is <c>Uri</c>
+    ///  objects. See the examples.</item>
+    /// <item>If the type is <c>Uri</c>
     ///  (or <c>URI</c>
-    /// in Java), returns a URI object if possible.</item>
-    ///  <item>If the
-    /// type is <c>Guid</c>
-    ///  (or <c>UUID</c>
-    ///  in Java), returns a UUID object
-    /// if possible.</item>
-    ///  <item>Plain-Old-Data deserialization: If the
-    /// object is a type not specially handled above, the type includes a
-    /// zero-parameter constructor (default or not), this CBOR object is a
-    /// CBOR map, and the "mapper" parameter (if any) allows this type to
-    /// be eligible for Plain-Old-Data deserialization, then this method
-    /// checks the given type for eligible setters as follows:</item>
-    /// <item>(*) In the .NET version, eligible setters are the public,
-    /// nonstatic setters of properties with a public, nonstatic getter.
-    /// Eligible setters also include public, nonstatic, non- <c>const</c>
-    /// , non- <c>readonly</c>
-    ///  fields. If a class has two properties and/or
-    /// fields of the form "X" and "IsX", where "X" is any name, or has
-    /// multiple properties and/or fields with the same name, those
-    /// properties and fields are ignored.</item>
-    ///  <item>(*) In the Java
-    /// version, eligible setters are public, nonstatic methods starting
-    /// with "set" followed by a character other than a basic digit or
-    /// lower-case letter, that is, other than "a" to "z" or "0" to "9",
-    /// that take one parameter. The class containing an eligible setter
-    /// must have a public, nonstatic method with the same name, but
-    /// starting with "get" or "is" rather than "set", that takes no
-    /// parameters and does not return void. (For example, if a class has
-    /// "public setValue(String)" and "public getValue()", "setValue" is an
-    /// eligible setter. However, "setValue()" and "setValue(String, int)"
-    /// are not eligible setters.) In addition, public, nonstatic, nonfinal
-    /// fields are also eligible setters. If a class has two or more
-    /// otherwise eligible setters (methods and/or fields) with the same
-    /// name, but different parameter type, they are not eligible
-    /// setters.</item>
-    ///  <item>Then, the method creates an object of the
-    /// given type and invokes each eligible setter with the corresponding
-    /// value in the CBOR map, if any. Key names in the map are matched to
-    /// eligible setters according to the rules described in the <see
-    /// cref='PeterO.Cbor.PODOptions'/> documentation. Note that for
-    /// security reasons, certain types are not supported even if they
-    /// contain eligible setters. For the Java version, the object creation
-    /// may fail in the case of a nested nonstatic class.</item>
+    ///  in Java), returns a
+    /// URI object if possible.</item>
+    ///  <item>If the type is <c>Guid</c>
+    ///  (or
+    /// <c>UUID</c>
+    ///  in Java), returns a UUID object if possible.</item>
+    /// <item>Plain-Old-Data deserialization: If the object is a type not
+    /// specially handled above, the type includes a zero-parameter
+    /// constructor (default or not), this CBOR object is a CBOR map, and
+    /// the "mapper" parameter (if any) allows this type to be eligible for
+    /// Plain-Old-Data deserialization, then this method checks the given
+    /// type for eligible setters as follows:</item>
+    ///  <item>(*) In the .NET
+    /// version, eligible setters are the public, nonstatic setters of
+    /// properties with a public, nonstatic getter. Eligible setters also
+    /// include public, nonstatic, non- <c>const</c>
+    ///  , non- <c>readonly</c>
+    /// fields. If a class has two properties and/or fields of the form "X"
+    /// and "IsX", where "X" is any name, or has multiple properties and/or
+    /// fields with the same name, those properties and fields are
+    /// ignored.</item>
+    ///  <item>(*) In the Java version, eligible setters are
+    /// public, nonstatic methods starting with "set" followed by a
+    /// character other than a basic digit or lower-case letter, that is,
+    /// other than "a" to "z" or "0" to "9", that take one parameter. The
+    /// class containing an eligible setter must have a public, nonstatic
+    /// method with the same name, but starting with "get" or "is" rather
+    /// than "set", that takes no parameters and does not return void. (For
+    /// example, if a class has "public setValue(String)" and "public
+    /// getValue()", "setValue" is an eligible setter. However,
+    /// "setValue()" and "setValue(String, int)" are not eligible setters.)
+    /// In addition, public, nonstatic, nonfinal fields are also eligible
+    /// setters. If a class has two or more otherwise eligible setters
+    /// (methods and/or fields) with the same name, but different parameter
+    /// type, they are not eligible setters.</item>
+    ///  <item>Then, the method
+    /// creates an object of the given type and invokes each eligible
+    /// setter with the corresponding value in the CBOR map, if any. Key
+    /// names in the map are matched to eligible setters according to the
+    /// rules described in the <see cref='PeterO.Cbor.PODOptions'/>
+    /// documentation. Note that for security reasons, certain types are
+    /// not supported even if they contain eligible setters. For the Java
+    /// version, the object creation may fail in the case of a nested
+    /// nonstatic class.</item>
     ///  </list>
-    /// </summary>
+    ///  </summary>
     /// <param name='t'>The type, class, or interface that this method's
     /// return value will belong to. To express a generic type in Java, see
     /// the example. <b>Note:</b>
@@ -2491,7 +2495,17 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     }
 
     /// <summary>Generates a CBOR object from a 32-bit floating-point
-    /// number.</summary>
+    /// number. The input value can be a not-a-number (NaN) value (such as
+    /// <c>Single.NaN</c> in DotNet or Float.NaN in Java); however, NaN
+    /// values have multiple forms that are equivalent for many
+    /// applications' purposes, and <c>Single.NaN</c> / <c>Float.NaN</c> is
+    /// only one of these equivalent forms. In fact,
+    /// <c>CBORObject.FromObject(Single.NaN)</c> or
+    /// <c>CBORObject.FromObject(Float.NaN)</c> could produce a
+    /// CBOR-encoded object that differs between DotNet and Java, because
+    /// <c>Single.NaN</c> / <c>Float.NaN</c> may have a different form in
+    /// DotNet and Java (for example, the NaN value's sign may be negative
+    /// in DotNet, but positive in Java).</summary>
     /// <param name='value'>The parameter <paramref name='value'/> is a
     /// 32-bit floating-point number.</param>
     /// <returns>A CBOR object generated from the given number.</returns>
@@ -2502,7 +2516,15 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     }
 
     /// <summary>Generates a CBOR object from a 64-bit floating-point
-    /// number.</summary>
+    /// number. The input value can be a not-a-number (NaN) value (such as
+    /// <c>Double.NaN</c> ); however, NaN values have multiple forms that
+    /// are equivalent for many applications' purposes, and
+    /// <c>Double.NaN</c> is only one of these equivalent forms. In fact,
+    /// <c>CBORObject.FromObject(Double.NaN)</c> could produce a
+    /// CBOR-encoded object that differs between DotNet and Java, because
+    /// <c>Double.NaN</c> may have a different form in DotNet and Java (for
+    /// example, the NaN value's sign may be negative in DotNet, but
+    /// positive in Java).</summary>
     /// <param name='value'>The parameter <paramref name='value'/> is a
     /// 64-bit floating-point number.</param>
     /// <returns>A CBOR object generated from the given number.</returns>
@@ -2596,12 +2618,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// arbitrary object, which can be null.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <returns>A CBOR object corresponding to the given object. Returns
     /// CBORObject.Null if the object is null.</returns>
     public static CBORObject FromObject(object obj) {
@@ -2615,12 +2638,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// arbitrary object.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='options'>An object containing options to control how
     /// certain objects are converted to CBOR objects.</param>
     /// <returns>A CBOR object corresponding to the given object. Returns
@@ -2640,12 +2664,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// arbitrary object.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='mapper'>An object containing optional converters to
     /// convert objects of certain types to CBOR objects.</param>
     /// <returns>A CBOR object corresponding to the given object. Returns
@@ -2837,14 +2862,15 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// <para><b>NOTE:</b>
     ///  For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c>
     ///  or <c>String</c>
-    ///  ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>
+    ///  ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>
     /// .</param>
     /// <param name='mapper'>An object containing optional converters to
     /// convert objects of certain types to CBOR objects. Can be
@@ -3099,12 +3125,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// an arbitrary object, which can be null.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='bigintTag'>Tag number. The tag number 55799 can be
     /// used to mark a "self-described CBOR" object. This document does not
     /// attempt to list all CBOR tags and their meanings. An up-to-date
@@ -3167,12 +3194,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// name='valueObValue'/> is an arbitrary object, which can be null.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='smallTag'>A 32-bit integer that specifies a tag
     /// number. The tag number 55799 can be used to mark a "self-described
     /// CBOR" object. This document does not attempt to list all CBOR tags
@@ -3426,7 +3454,10 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by
     /// assuming that the first character read must be a byte-order mark or
     /// a nonzero basic character (U+0001 to U+007F). (In previous
-    /// versions, only UTF-8 was allowed.).</summary>
+    /// versions, only UTF-8 was allowed.). (This behavior may change to
+    /// supporting only UTF-8, with or without a byte order mark, in
+    /// version 5.0 or later, perhaps with an option to restore the
+    /// previous behavior of also supporting UTF-16 and UTF-32.).</summary>
     /// <param name='stream'>A readable data stream. The sequence of bytes
     /// read from the data stream must contain a single JSON object and not
     /// multiple objects.</param>
@@ -3569,7 +3600,10 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by
     /// assuming that the first character read must be a byte-order mark or
     /// a nonzero basic character (U+0001 to U+007F). (In previous
-    /// versions, only UTF-8 was allowed.).</summary>
+    /// versions, only UTF-8 was allowed.). (This behavior may change to
+    /// supporting only UTF-8, with or without a byte order mark, in
+    /// version 5.0 or later, perhaps with an option to restore the
+    /// previous behavior of also supporting UTF-16 and UTF-32.).</summary>
     /// <param name='stream'>A readable data stream. The sequence of bytes
     /// read from the data stream must contain a single JSON object and not
     /// multiple objects.</param>
@@ -3629,14 +3663,18 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// The byte array may begin with a byte-order mark (U+FEFF). The byte
     /// array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is
     /// detected by assuming that the first character read must be a
-    /// byte-order mark or a nonzero basic character (U+0001 to
-    /// U+007F).</param>
+    /// byte-order mark or a nonzero basic character (U+0001 to U+007F).
+    /// (This behavior may change to supporting only UTF-8, with or without
+    /// a byte order mark, in version 5.0 or later, perhaps with an option
+    /// to restore the previous behavior of also supporting UTF-16 and
+    /// UTF-32.).</param>
     /// <returns>A CBOR object containing the JSON data decoded.</returns>
     /// <exception cref='ArgumentNullException'>The parameter <paramref
     /// name='bytes'/> is null.</exception>
     /// <exception cref='PeterO.Cbor.CBORException'>The byte array contains
     /// invalid encoding or is not in JSON format.</exception>
     public static CBORObject FromJSONBytes(byte[] bytes) {
+      // TODO: In next major version, consider supporting UTF-8 only
       return FromJSONBytes(bytes, JSONOptions.Default);
     }
 
@@ -3654,8 +3692,11 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// The byte array may begin with a byte-order mark (U+FEFF). The byte
     /// array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is
     /// detected by assuming that the first character read must be a
-    /// byte-order mark or a nonzero basic character (U+0001 to
-    /// U+007F).</param>
+    /// byte-order mark or a nonzero basic character (U+0001 to U+007F).
+    /// (This behavior may change to supporting only UTF-8, with or without
+    /// a byte order mark, in version 5.0 or later, perhaps with an option
+    /// to restore the previous behavior of also supporting UTF-16 and
+    /// UTF-32.).</param>
     /// <param name='jsonoptions'>Specifies options to control how the JSON
     /// data is decoded to CBOR. See the JSONOptions class.</param>
     /// <returns>A CBOR object containing the JSON data decoded.</returns>
@@ -3667,6 +3708,7 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     public static CBORObject FromJSONBytes(
       byte[] bytes,
       JSONOptions jsonoptions) {
+      // TODO: In next major version, consider supporting UTF-8 only
       if (bytes == null) {
         throw new ArgumentNullException(nameof(bytes));
       }
@@ -3696,7 +3738,10 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// may begin with a byte-order mark (U+FEFF). The portion can be in
     /// UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by
     /// assuming that the first character read must be a byte-order mark or
-    /// a nonzero basic character (U+0001 to U+007F).</param>
+    /// a nonzero basic character (U+0001 to U+007F). (This behavior may
+    /// change to supporting only UTF-8, with or without a byte order mark,
+    /// in version 5.0 or later, perhaps with an option to restore the
+    /// previous behavior of also supporting UTF-16 and UTF-32.).</param>
     /// <param name='offset'>An index, starting at 0, showing where the
     /// desired portion of <paramref name='bytes'/> begins.</param>
     /// <param name='count'>The length, in bytes, of the desired portion of
@@ -3732,7 +3777,10 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// may begin with a byte-order mark (U+FEFF). The portion can be in
     /// UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by
     /// assuming that the first character read must be a byte-order mark or
-    /// a nonzero basic character (U+0001 to U+007F).</param>
+    /// a nonzero basic character (U+0001 to U+007F). (This behavior may
+    /// change to supporting only UTF-8, with or without a byte order mark,
+    /// in version 5.0 or later, perhaps with an option to restore the
+    /// previous behavior of also supporting UTF-16 and UTF-32.).</param>
     /// <param name='offset'>An index, starting at 0, showing where the
     /// desired portion of <paramref name='bytes'/> begins.</param>
     /// <param name='count'>The length, in bytes, of the desired portion of
@@ -4355,12 +4403,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// be null.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='output'>A writable data stream.</param>
     /// <param name='options'>CBOR options for encoding the CBOR object to
     /// bytes.</param>
@@ -4423,12 +4472,13 @@ DecodeObjectFromBytes(data, CBOREncodeOptions.Default, t, mapper, pod);
     /// arbitrary object. Can be null.
     /// <para><b>NOTE:</b> For security reasons, whenever possible, an
     /// application should not base this parameter on user input or other
-    /// externally supplied data unless the application limits this
-    /// parameter's inputs to types specially handled by this method (such
-    /// as <c>int</c> or <c>String</c> ) and/or to plain-old-data types
-    /// (POCO or POJO types) within the control of the application. If the
-    /// plain-old-data type references other data types, those types should
-    /// likewise meet either criterion above.</para>.</param>
+    /// externally supplied data, and whenever possible, the application
+    /// should limit this parameter's inputs to types specially handled by
+    /// this method (such as <c>int</c> or <c>String</c> ) and/or to
+    /// plain-old-data types (POCO or POJO types) within the control of the
+    /// application. If the plain-old-data type references other data
+    /// types, those types should likewise meet either criterion
+    /// above.</para>.</param>
     /// <param name='outputStream'>A writable data stream.</param>
     /// <exception cref='ArgumentNullException'>The parameter <paramref
     /// name='outputStream'/> is null.</exception>
@@ -5575,6 +5625,89 @@ CBORObjectTypeTextStringAscii) ?
       }
     }
 
+    /// <summary>Gets the CBOR object referred to by a JSON Pointer
+    /// according to RFC6901. For more information, see the overload taking
+    /// a default value parameter.</summary>
+    /// <param name='pointer'>A JSON pointer according to RFC 6901.</param>
+    /// <returns>An object within this CBOR object. Returns this object if
+    /// pointer is the empty string (even if this object has a CBOR type
+    /// other than array or map).</returns>
+    /// <exception cref='PeterO.Cbor.CBORException'>Thrown if the pointer
+    /// is null, or if the pointer is invalid, or if there is no object at
+    /// the given pointer, or the special key "-" appears in the pointer in
+    /// the context of an array (not a map), or if the pointer is non-empty
+    /// and this object has a CBOR type other than array or
+    /// map.</exception>
+    public CBORObject AtJSONPointer(string pointer) {
+      CBORObject ret = this.AtJSONPointer(pointer, null);
+      if (ret == null) {
+         throw new CBORException("Invalid JSON pointer");
+      }
+      return ret;
+    }
+
+    /// <summary>Gets the CBOR object referred to by a JSON Pointer
+    /// according to RFC6901, or a default value if the operation fails.
+    /// The syntax for a JSON Pointer is:
+    /// <pre>'/' KEY '/' KEY [...]</pre> where KEY represents a key into
+    /// the JSON object or its sub-objects in the hierarchy. For example,
+    /// <pre>/foo/2/bar</pre> means the same as
+    /// <pre>obj['foo'][2]['bar']</pre> in JavaScript. If "~" and/or "/"
+    /// occurs in a key, it must be escaped with "~0" or "~1",
+    /// respectively, in a JSON pointer. JSON pointers also support the
+    /// special key "-" (as in "/foo/-") to indicate the end of an array,
+    /// but this method treats this key as an error since it refers to a
+    /// nonexistent item. Indices to arrays (such as 2 in the example) must
+    /// contain only basic digits 0 to 9 and no leading zeros. (Note that
+    /// RFC 6901 was published before JSON was extended to support
+    /// top-level values other than arrays and key-value
+    /// dictionaries.).</summary>
+    /// <param name='pointer'>A JSON pointer according to RFC 6901.</param>
+    /// <param name='defaultValue'>The parameter <paramref
+    /// name='defaultValue'/> is a Cbor.CBORObject object.</param>
+    /// <returns>An object within the specified JSON object. Returns this
+    /// object if pointer is the empty string (even if this object has a
+    /// CBOR type other than array or map). Returns <paramref
+    /// name='defaultValue'/> if the pointer is null, or if the pointer is
+    /// invalid, or if there is no object at the given pointer, or the
+    /// special key "-" appears in the pointer in the context of an array
+    /// (not a map), or if the pointer is non-empty and this object has a
+    /// CBOR type other than array or map.</returns>
+    public CBORObject AtJSONPointer(string pointer, CBORObject defaultValue) {
+      return JSONPointer.GetObject(this, pointer, null);
+    }
+
+  /// <summary>Returns a copy of this object after applying the
+  /// operations in a JSON patch, in the form of a CBOR object. JSON
+  /// patches are specified in RFC 6902 and their format is summarized in
+  /// the remarks below.</summary>
+  /// <param name='patch'>A JSON patch in the form of a CBOR object; it
+  /// has the form summarized in the remarks.</param>
+  /// <returns>The result of the patch operation.</returns>
+  /// <exception cref='PeterO.Cbor.CBORException'>The parameter <paramref
+  /// name='patch'/> is null or the patch operation failed.</exception>
+  /// <remarks><b>Remarks:</b> A JSON patch is an array with one or more
+  /// maps. Each map has the following keys:
+  /// <list>
+  /// <item>"op" - Required. This key's value is the patch operation and
+  /// must be "add", "remove", "move", "copy", "test", or "replace", in
+  /// basic lower case letters and no other case combination.</item>
+  /// <item>"value" - Required if the operation is "add", "replace", or
+  /// "test" and specifies the item to add (insert), or that will replace
+  /// the existing item, or to check an existing item for equality,
+  /// respectively. (For "test", the operation fails if the existing item
+  /// doesn't match the specified value.)</item>
+  /// <item>"path" - Required for all operations. A JSON Pointer (RFC
+  /// 6901) specifying the destination path in the CBOR object for the
+  /// operation. For more information, see RFC 6901 or the documentation
+  /// for AtJSONPointer(pointer, defaultValue).</item>
+  /// <item>"from" - Required if the operation is "move" or "copy". A
+  /// JSON Pointer (RFC 6901) specifying the path in the CBOR object
+  /// where the source value is located.</item></list></remarks>
+    public CBORObject ApplyJSONPatch(CBORObject patch) {
+      return JSONPatch.Patch(this, patch);
+    }
+
     /// <summary>Determines whether this object and another object are
     /// equal and have the same type. Not-a-number values can be considered
     /// equal by this method.</summary>
@@ -6104,12 +6237,7 @@ CBORObjectTypeTextStringAscii)) {
       }
       if (this.Type == CBORType.Map) {
         IDictionary<CBORObject, CBORObject> dict = this.AsMap();
-        bool hasKey = dict.ContainsKey(obj);
-        if (hasKey) {
-          dict.Remove(obj);
-          return true;
-        }
-        return false;
+        return dict.Remove(obj);
       }
       if (this.Type == CBORType.Array) {
         IList<CBORObject> list = this.AsList();
@@ -6156,11 +6284,7 @@ CBORObjectTypeTextStringAscii)) {
           mapValue = mapValue ?? CBORObject.FromObject(valueOb);
         }
         IDictionary<CBORObject, CBORObject> map = this.AsMap();
-        if (map.ContainsKey(mapKey)) {
-          map[mapKey] = mapValue;
-        } else {
-          map.Add(mapKey, mapValue);
-        }
+        map[mapKey] = mapValue;
       } else if (this.Type == CBORType.Array) {
         if (key is int) {
           IList<CBORObject> list = this.AsList();
@@ -7288,11 +7412,6 @@ CBORObjectTypeTextStringAscii)) {
 
     internal static CBORObject FromRaw(IDictionary<CBORObject, CBORObject>
       map) {
-      #if DEBUG
-      if (!(map is SortedDictionary<CBORObject, CBORObject>)) {
-        throw new InvalidOperationException();
-      }
-      #endif
       return new CBORObject(CBORObjectTypeMap, map);
     }
 
@@ -7412,7 +7531,7 @@ CBORObjectTypeTextStringAscii)) {
       }
       if (firstbyte == 0xa0) {
         // empty map
-        return CBORObject.NewMap();
+        return CBORObject.NewOrderedMap();
       }
       throw new CBORException("Unexpected data encountered");
     }
@@ -7530,7 +7649,8 @@ CBORObjectTypeTextStringAscii)) {
         throw new CBORException("Premature end of data");
       }
       if (actualLength > expectedLength) {
-        throw new CBORException("Too many bytes");
+        throw new CBORException(
+            "Too many bytes. There is data beyond the decoded CBOR object.");
       }
     }
 
@@ -7540,7 +7660,8 @@ CBORObjectTypeTextStringAscii)) {
         throw new CBORException("Premature end of data");
       }
       if (actualLength > expectedLength) {
-        throw new CBORException("Too many bytes");
+        throw new CBORException(
+            "Too many bytes. There is data beyond the decoded CBOR object.");
       }
     }
 
@@ -7822,12 +7943,8 @@ CBORObjectTypeTextStringAscii)) {
       if (listACount != listBCount) {
         return listACount < listBCount ? -1 : 1;
       }
-      var sortedASet = new List<CBORObject>(mapA.Keys);
-      var sortedBSet = new List<CBORObject>(mapB.Keys);
-      // DebugUtility.Log("---sorting mapA's keys");
-      sortedASet.Sort();
-      // DebugUtility.Log("---sorting mapB's keys");
-      sortedBSet.Sort();
+      var sortedASet = new List<CBORObject>(PropertyMap.GetSortedKeys(mapA));
+      var sortedBSet = new List<CBORObject>(PropertyMap.GetSortedKeys(mapB));
       // DebugUtility.Log("---done sorting");
       listACount = sortedASet.Count;
       listBCount = sortedBSet.Count;

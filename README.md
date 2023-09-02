@@ -5,19 +5,19 @@ CBOR
 
 **Download source code: [ZIP file](https://github.com/peteroupc/CBOR/archive/master.zip)**
 
-If you like this software, consider donating to me at this link: [http://peteroupc.github.io/](http://peteroupc.github.io/)
-
 ----
 
 A C# implementation of Concise Binary Object Representation, a general-purpose binary data format defined in RFC 8949. According to that RFC, CBOR's data model "is an extended version of the JSON data model", supporting many more types of data than JSON. "CBOR was inspired by MessagePack", but "is not intended as a version of or replacement for MessagePack."
 
-This implementation was written by Peter O. and is released to the Public Domain under the [CC0 Declaration](http://creativecommons.org/publicdomain/zero/1.0/).
+This implementation was written by Peter O. and is released to the Public Domain under the [CC0 Declaration](https://creativecommons.org/publicdomain/zero/1.0/).
 
 This implementation also doubles as a reader and writer of JSON, and can convert data from JSON to CBOR and back.
 
 Finally, this implementation supports arbitrary-precision binary and decimal floating-point numbers and rational numbers with arbitrary-precision components.
 
 Source code is available in the [project page](https://github.com/peteroupc/CBOR).
+
+Note that after version 4.5x, the CBOR library's repository will stop including special projects for .NET 2.0 and .NET 4.0, leaving the .NET-Standard project for building the library.
 
 How to Install
 ---------
@@ -43,7 +43,6 @@ Other Sites
 
 * CodePlex: [https://peterocbor.codeplex.com/](https://peterocbor.codeplex.com/)
 * Code Project: [http://www.codeproject.com/Tips/897294/Concise-Binary-Object-Representation-CBOR-in-Cshar](http://www.codeproject.com/Tips/897294/Concise-Binary-Object-Representation-CBOR-in-Cshar)
-* SourceForge: [https://sourceforge.net/p/petero-cbor](https://sourceforge.net/p/petero-cbor)
 
 Examples
 ----------
@@ -278,14 +277,14 @@ of a given class into CBOR objects.
        var tm=new CBORTypeMapper().AddConverter(
            typeof(CPOD3),
            new CPOD3Converter());
-       // Serialize CBOR object
+       // Serialize CBOR object, passing the type mapper
        var cbor=CBORObject.FromObject(cp2,tm);
-       // Deserialize CBOR object
-       cp2=cbor.ToObject<CPOD3>();
+       // Deserialize CBOR object, passing the type mapper
+       cp2=cbor.ToObject<CPOD3>(tm);
 ```
 
 NOTE: All code samples in this section are released to the Public Domain,
-as explained in <http://creativecommons.org/publicdomain/zero/1.0/>.
+as explained in <https://creativecommons.org/publicdomain/zero/1.0/>.
 
 Demo
 ----------
@@ -301,10 +300,7 @@ Written in 2013-2019 by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-[http://creativecommons.org/publicdomain/zero/1.0/](http://creativecommons.org/publicdomain/zero/1.0/)
-
-If you like this, you should donate to Peter O.
-at: [http://peteroupc.github.io/CBOR/](http://peteroupc.github.io/CBOR/)
+[https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
 
 Release Notes
 -----------
@@ -318,7 +314,7 @@ Here are specifications by this implementation's author on certain CBOR tags:
 
 * Tag 30: [Rational numbers](http://peteroupc.github.io/CBOR/rational.html)
 * Tag 257: [Binary MIME messages](http://peteroupc.github.io/CBOR/binarymime.html)
-* Tag 38: [Language-tagged strings](http://peteroupc.github.io/CBOR/langtags.html)
+* Tag 38: [Language-tagged strings](http://peteroupc.github.io/CBOR/langtags.html) (Expected to be superseded by an RFC; see the Internet Draft draft-ietf-core-problem-details).
 * Tag 264 and 265: [Arbitrary-exponent numbers](http://peteroupc.github.io/CBOR/bigfrac.html)
 
 Acknowledgments

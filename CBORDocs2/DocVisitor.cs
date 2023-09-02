@@ -4,9 +4,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections.Generic;
@@ -175,10 +174,10 @@ IsMethodOverride((MethodInfo)method)) {
   StringComparison.Ordinal)) {
           builder.Append("implicit operator ");
           builder.Append(FormatType(methodInfo.ReturnType));
-        } else if (ValueOperators.ContainsKey(method.Name)) {
+        } else if (ValueOperators.TryGetValue(method.Name, out string op)) {
           builder.Append(FormatType(methodInfo.ReturnType));
           builder.Append(" operator ");
-          builder.Append(ValueOperators[method.Name]);
+          builder.Append(op);
         } else {
           if (!shortform) {
             builder.Append(FormatType(methodInfo.ReturnType));
@@ -880,9 +879,8 @@ property.GetCustomAttribute(typeof(CLSCompliantAttribute)) as
     }
 
     private static string MethodNameHeading(string p) {
-      return ValueOperators.ContainsKey(p) ? ("Operator `" +
-        ValueOperators[p] + "`") :
-        (p.Equals("op_Explicit", StringComparison.Ordinal) ?
+      return ValueOperators.TryGetValue(p, out string op) ? ("Operator `" +
+        op + "`") : (p.Equals("op_Explicit", StringComparison.Ordinal) ?
           "Explicit Operator" :
          (p.Equals("op_Implicit", StringComparison.Ordinal) ?
           "Implicit Operator" : p));

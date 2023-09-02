@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections;
@@ -13,7 +12,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using PeterO;
 using PeterO.Numbers;
 
 namespace PeterO.Cbor {
@@ -36,7 +34,7 @@ namespace PeterO.Cbor {
       private readonly IDictionary<TKey, TValue> dict;
       private readonly LinkedList<TKey> list;
       public OrderedDictionary() {
-        this.dict = new Dictionary<TKey, TValue>();
+        this.dict = new SortedDictionary<TKey, TValue>();
         this.list = new LinkedList<TKey>();
       }
       public void Add(KeyValuePair<TKey, TValue> kvp) {
@@ -104,17 +102,16 @@ namespace PeterO.Cbor {
         return false;
       }
       public bool Remove(TKey key) {
-        if (this.dict.ContainsKey(key)) {
+        if (this.dict.Remove(key)) {
           // CheckKeyExists(key);
-          this.dict.Remove(key);
           this.list.Remove(key);
           return true;
         }
         return false;
       }
       public bool Contains(KeyValuePair<TKey, TValue> kvp) {
-        if (this.dict.ContainsKey(kvp.Key)) {
-          if (this.dict[kvp.Key].Equals(kvp.Value)) {
+        if (this.dict.TryGetValue(kvp.Key, out TValue val)) {
+          if (val.Equals(kvp.Value)) {
             return true;
           }
         }
@@ -177,6 +174,12 @@ namespace PeterO.Cbor {
       public ICollection<TKey> Keys {
         get {
           return new KeyWrapper<TKey, TValue>(this.dict, this.list);
+        }
+      }
+
+      public ICollection<TKey> SortedKeys {
+        get {
+           return this.dict.Keys;
         }
       }
 
@@ -565,11 +568,11 @@ namespace PeterO.Cbor {
 
     private static IList<PropertyData> GetPropertyList(Type t) {
       {
-        IList<PropertyData> ret = new List<PropertyData>();
         propertyLists = propertyLists ?? new Dictionary<Type, IList<PropertyData>>();
-        if (propertyLists.ContainsKey(t)) {
-          return propertyLists[t];
+        if (propertyLists.TryGetValue(t, out IList<PropertyData> ret)) {
+          return ret;
         }
+        ret = new List<PropertyData>();
         bool anonymous = HasCustomAttribute(
             t,
             "System.Runtime.CompilerServices.CompilerGeneratedAttribute") ||
@@ -579,16 +582,16 @@ namespace PeterO.Cbor {
         var names = new SortedDictionary<string, int>();
         foreach (PropertyInfo pi in GetTypeProperties(t)) {
           var pn = RemoveIsPrefix(pi.Name);
-          if (names.ContainsKey(pn)) {
-            ++names[pn];
+          if (names.TryGetValue(pn, out int count)) {
+            names[pn] = count + 1;
           } else {
             names[pn] = 1;
           }
         }
         foreach (FieldInfo pi in GetTypeFields(t)) {
           var pn = RemoveIsPrefix(pi.Name);
-          if (names.ContainsKey(pn)) {
-            ++names[pn];
+          if (names.TryGetValue(pn, out int count)) {
+            names[pn] = count + 1;
           } else {
             names[pn] = 1;
           }
@@ -598,7 +601,7 @@ namespace PeterO.Cbor {
           if (pd.HasUsableGetter() || pd.HasUsableSetter()) {
             var pn = RemoveIsPrefix(pd.Name);
             // Ignore ambiguous properties
-            if (names.ContainsKey(pn) && names[pn] > 1) {
+            if (names.TryGetValue(pn, out int count) && count > 1) {
               continue;
             }
             ret.Add(pd);
@@ -611,7 +614,7 @@ namespace PeterO.Cbor {
               PropertyData.HasUsableSetter(pi)) {
               var pn = RemoveIsPrefix(pi.Name);
               // Ignore ambiguous properties
-              if (names.ContainsKey(pn) && names[pn] > 1) {
+              if (names.TryGetValue(pn, out int count) && count > 1) {
                 continue;
               }
               PropertyData pd = new PropertyMap.PropertyData(pi.Name, pi);
@@ -896,6 +899,21 @@ namespace PeterO.Cbor {
           Convert.ToInt32(value, CultureInfo.InvariantCulture));
     }
 
+    public static ICollection<TKey>
+    GetSortedKeys<TKey, TValue>(
+      IDictionary<TKey, TValue> dict) {
+      var odict = dict as OrderedDictionary<TKey, TValue>;
+      if (odict != null) {
+        return odict.SortedKeys;
+      }
+      var sdict = dict as SortedDictionary<TKey, TValue>;
+      if (sdict != null) {
+        return sdict.Keys;
+      }
+      throw new InvalidOperationException("Internal error: Map doesn't" +
+"\u0020support sorted keys");
+    }
+
     public static ICollection<KeyValuePair<TKey, TValue>>
     GetEntries<TKey, TValue>(
       IDictionary<TKey, TValue> dict) {
@@ -1064,6 +1082,7 @@ namespace PeterO.Cbor {
         }
       }
       if (objThis.Type == CBORType.ByteString) {
+        // TODO: Consider converting base64 strings
         if (t.Equals(typeof(byte[]))) {
           byte[] bytes = objThis.GetByteString();
           var byteret = new byte[bytes.Length];
@@ -1074,9 +1093,9 @@ namespace PeterO.Cbor {
       if (objThis.Type == CBORType.Array) {
         Type objectType = typeof(object);
         var isList = false;
+        var isReadOnlyCollection = false;
         object listObject = null;
         object genericListObject = null;
-        #if NET40 || NET20
         if (IsAssignableFrom(typeof(Array), t)) {
           Type elementType = t.GetElementType();
           Array array = Array.CreateInstance(
@@ -1090,40 +1109,55 @@ namespace PeterO.Cbor {
               options,
               depth);
         }
+        #if NET40 || NET20
         if (t.IsGenericType) {
           Type td = t.GetGenericTypeDefinition();
           isList = td.Equals(typeof(List<>)) || td.Equals(typeof(IList<>)) ||
             td.Equals(typeof(ICollection<>)) ||
             td.Equals(typeof(IEnumerable<>));
+          #if NET20 || NET40
+          isReadOnlyCollection = false;
+          #else
+          isReadOnlyCollection = (td.Equals(typeof(IReadOnlyCollection<>)) ||
+             td.Equals(typeof(IReadOnlyList<>)) ||
+
+             td.Equals(
+               typeof(System.Collections.ObjectModel.ReadOnlyCollection<>)))
+&&
+             t.GetGenericArguments().Length == 1;
+         #endif
         }
         isList = isList && t.GetGenericArguments().Length == 1;
-        if (isList) {
+        if (isReadOnlyCollection) {
+          objectType = t.GetGenericArguments()[0];
+          Type listType = typeof(List<>).MakeGenericType(objectType);
+          listObject = Activator.CreateInstance(listType);
+        } else if (isList) {
           objectType = t.GetGenericArguments()[0];
           Type listType = typeof(List<>).MakeGenericType(objectType);
           listObject = Activator.CreateInstance(listType);
         }
         #else
-        if (IsAssignableFrom(typeof(Array), t)) {
-          Type elementType = t.GetElementType();
-          Array array = Array.CreateInstance(
-              elementType,
-              GetDimensions(objThis));
-          return FillArray(
-              array,
-              elementType,
-              objThis,
-              mapper,
-              options,
-              depth);
-        }
+        // TODO: Support IReadOnlyDictionary
         if (t.GetTypeInfo().IsGenericType) {
           Type td = t.GetGenericTypeDefinition();
           isList = td.Equals(typeof(List<>)) || td.Equals(typeof(IList<>)) ||
             td.Equals(typeof(ICollection<>)) ||
             td.Equals(typeof(IEnumerable<>));
+          isReadOnlyCollection = (td.Equals(typeof(IReadOnlyCollection<>)) ||
+             td.Equals(typeof(IReadOnlyList<>)) ||
+
+             td.Equals(
+               typeof(System.Collections.ObjectModel.ReadOnlyCollection<>)))
+&&
+             t.GenericTypeArguments.Length == 1;
         }
         isList = isList && t.GenericTypeArguments.Length == 1;
-        if (isList) {
+        if (isReadOnlyCollection) {
+          objectType = t.GenericTypeArguments[0];
+          Type listType = typeof(List<>).MakeGenericType(objectType);
+          listObject = Activator.CreateInstance(listType);
+        } else if (isList) {
           objectType = t.GenericTypeArguments[0];
           Type listType = typeof(List<>).MakeGenericType(objectType);
           listObject = Activator.CreateInstance(listType);
@@ -1149,10 +1183,10 @@ namespace PeterO.Cbor {
               }
             }
             if (implementsList) {
-              // DebugUtility.Log("assignable from list<>");
+              // DebugUtility.Log("assignable from ilist<>");
               genericListObject = Activator.CreateInstance(t);
             } else {
-              // DebugUtility.Log("not assignable from list<> " + t);
+              // DebugUtility.Log("not assignable from ilist<> " + t);
             }
           }
         }
@@ -1162,7 +1196,7 @@ namespace PeterO.Cbor {
               "Add",
               objectType);
           if (addMethod == null) {
-            throw new CBORException();
+            throw new CBORException("no add method");
           }
           foreach (CBORObject value in objThis.Values) {
             PropertyMap.InvokeOneArgumentMethod(
@@ -1177,11 +1211,19 @@ namespace PeterO.Cbor {
           foreach (CBORObject value in objThis.Values) {
             ie.Add(value.ToObject(objectType, mapper, options, depth + 1));
           }
+          if (isReadOnlyCollection) {
+            objectType = FirstGenericArgument(t);
+            Type rocType =
+typeof(System.Collections.ObjectModel.ReadOnlyCollection<>)
+               .MakeGenericType(objectType);
+            listObject = Activator.CreateInstance(rocType, listObject);
+          }
           return listObject;
         }
       }
       if (objThis.Type == CBORType.Map) {
         var isDict = false;
+        var isReadOnlyDict = false;
         Type keyType = null;
         Type valueType = null;
         object dictObject = null;
@@ -1191,11 +1233,19 @@ namespace PeterO.Cbor {
           Type td = t.GetGenericTypeDefinition();
           isDict = td.Equals(typeof(Dictionary<,>)) ||
             td.Equals(typeof(IDictionary<,>));
+          #if NET20 || NET40
+          isReadOnlyDict = false;
+          #else
+          isReadOnlyDict =
+(td.Equals(typeof(System.Collections.ObjectModel.ReadOnlyDictionary<,>)) ||
+            td.Equals(typeof(IReadOnlyDictionary<,>))) &&
+            t.GetGenericArguments().Length == 2;
+          #endif
         }
         // DebugUtility.Log("list=" + isDict);
         isDict = isDict && t.GetGenericArguments().Length == 2;
         // DebugUtility.Log("list=" + isDict);
-        if (isDict) {
+        if (isDict || isReadOnlyDict) {
           keyType = t.GetGenericArguments()[0];
           valueType = t.GetGenericArguments()[1];
           Type listType = typeof(Dictionary<,>).MakeGenericType(
@@ -1209,11 +1259,15 @@ namespace PeterO.Cbor {
           Type td = t.GetGenericTypeDefinition();
           isDict = td.Equals(typeof(Dictionary<,>)) ||
             td.Equals(typeof(IDictionary<,>));
+          isReadOnlyDict =
+(td.Equals(typeof(System.Collections.ObjectModel.ReadOnlyDictionary<,>)) ||
+            td.Equals(typeof(IReadOnlyDictionary<,>))) &&
+            t.GenericTypeArguments.Length == 2;
         }
         // DebugUtility.Log("list=" + isDict);
         isDict = isDict && t.GenericTypeArguments.Length == 2;
         // DebugUtility.Log("list=" + isDict);
-        if (isDict) {
+        if (isDict || isReadOnlyDict) {
           keyType = t.GenericTypeArguments[0];
           valueType = t.GenericTypeArguments[1];
           Type listType = typeof(Dictionary<,>).MakeGenericType(
@@ -1238,6 +1292,16 @@ namespace PeterO.Cbor {
               key.ToObject(keyType, mapper, options, depth + 1),
               value.ToObject(valueType, mapper, options, depth + 1));
           }
+          #if !NET20 && !NET40
+          if (isReadOnlyDict) {
+            Type listType =
+typeof(
+  System.Collections.ObjectModel.ReadOnlyDictionary<,>)
+           .MakeGenericType(keyType,
+              valueType);
+            dictObject = Activator.CreateInstance(listType, dictObject);
+          }
+          #endif
           return dictObject;
         }
         if (mapper != null) {
@@ -1316,8 +1380,8 @@ namespace PeterO.Cbor {
           }
           var name = key.GetAdjustedName(options != null ?
               options.UseCamelCase : true);
-          if (dict.ContainsKey(name)) {
-            object dobj = dict[name].ToObject(
+          if (dict.TryGetValue(name, out CBORObject cborObj)) {
+            object dobj = cborObj.ToObject(
                 key.PropertyType,
                 mapper,
                 options,

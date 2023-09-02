@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections.Generic;
@@ -1729,6 +1728,52 @@ namespace Test {
     }
 
     [Test]
+    public void TestRoundTripNaN() {
+      long doublennan = unchecked((long)0xfff8000000000000L);
+      long doublepnan = unchecked((long)0x7ff8000000000000L);
+      int singlennan = unchecked((int)0xffc00000);
+      int singlepnan = unchecked((int)0x7fc00000);
+      var halfnnan = 0xfe00;
+      var halfpnan = 0x7e00;
+      {
+        object objectTemp = doublennan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(doublennan,
+          8).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+      {
+        object objectTemp = doublepnan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(doublepnan,
+          8).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+      {
+        object objectTemp = doublennan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(singlennan,
+          4).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+      {
+        object objectTemp = doublepnan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(singlepnan,
+          4).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+      {
+        object objectTemp = doublennan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(halfnnan,
+          2).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+      {
+        object objectTemp = doublepnan;
+        object objectTemp2 = CBORObject.FromFloatingPointBits(halfpnan,
+          2).AsDoubleBits();
+        Assert.AreEqual(objectTemp, objectTemp2);
+      }
+    }
+
+    [Test]
     public void TestPlist() {
       CBORObject o;
       o = CBORObject.FromJSONString("[1,2,null,true,false,\"\"]");
@@ -1752,10 +1797,10 @@ namespace Test {
       o = CBORObject.FromJSONString("[1.5,2.6,3.7,4.0,222.22]");
       double actual = o[0].AsDouble();
       Assert.AreEqual((double)1.5, actual);
-      using (var ms2a = new MemoryStream(new byte[] { })) {
+      using (var ms2a = new Test.DelayingStream(new byte[] { })) {
         try {
           CBORObject.ReadJSON(ms2a);
-          Assert.Fail("Should have failed");
+          Assert.Fail("Should have failed A");
         } catch (CBORException) {
           // NOTE: Intentionally empty
         } catch (Exception ex) {
@@ -1763,10 +1808,10 @@ namespace Test {
           throw new InvalidOperationException(String.Empty, ex);
         }
       }
-      using (var ms2b = new MemoryStream(new byte[] { 0x20 })) {
+      using (var ms2b = new Test.DelayingStream(new byte[] { 0x20 })) {
         try {
           CBORObject.ReadJSON(ms2b);
-          Assert.Fail("Should have failed");
+          Assert.Fail("Should have failed B");
         } catch (CBORException) {
           // NOTE: Intentionally empty
         } catch (Exception ex) {
@@ -1776,7 +1821,7 @@ namespace Test {
       }
       try {
         CBORObject.FromJSONString(String.Empty);
-        Assert.Fail("Should have failed");
+        Assert.Fail("Should have failed C");
       } catch (CBORException) {
         // NOTE: Intentionally empty
       } catch (Exception ex) {
@@ -1785,7 +1830,7 @@ namespace Test {
       }
       try {
         CBORObject.FromJSONString("[.1]");
-        Assert.Fail("Should have failed");
+        Assert.Fail("Should have failed D");
       } catch (CBORException) {
         // NOTE: Intentionally empty
       } catch (Exception ex) {
@@ -1794,7 +1839,7 @@ namespace Test {
       }
       try {
         CBORObject.FromJSONString("[-.1]");
-        Assert.Fail("Should have failed");
+        Assert.Fail("Should have failed E");
       } catch (CBORException) {
         // NOTE: Intentionally empty
       } catch (Exception ex) {
@@ -1803,7 +1848,7 @@ namespace Test {
       }
       try {
         CBORObject.FromJSONString("\u0020");
-        Assert.Fail("Should have failed");
+        Assert.Fail("Should have failed F");
       } catch (CBORException) {
         // NOTE: Intentionally empty
       } catch (Exception ex) {
@@ -1976,6 +2021,39 @@ namespace Test {
     }
 
     [Test]
+    public void TestJSONWithComments() {
+      IDictionary<string, string> dict;
+      string str = "[\n {\n # Bm\n\"a\":1,\n\"b\":2\n},{\n #" +
+        "\u0020Sm\n\"a\":3,\n\"b\":4\n}\n]";
+      CBORObject obj = JSONWithComments.FromJSONString(str);
+      Console.WriteLine(obj);
+      str = "[\n {\n # B\n # Dm\n\"a\":1,\n\"b\":2\n},{\n #" +
+        "\u0020Sm\n\"a\":3,\n\"b\":4\n}\n]";
+      obj = JSONWithComments.FromJSONString(str);
+      Console.WriteLine(obj);
+      str = "[\n {\n # B A C\n # Dm\n\"a\":1,\n\"b\":2\n},{\n #" +
+        "\u0020Sm\n\"a\":3,\n\"b\":4\n}\n]";
+      obj = JSONWithComments.FromJSONString(str);
+      Console.WriteLine(obj);
+      str = "[\n {\n # B\t \tA C\n # Dm\n\"a\":1,\n\"b\":2\n},{\n #" +
+        "\u0020Sm\n\"a\":3,\n\"b\":4\n}\n]";
+      obj = JSONWithComments.FromJSONString(str);
+      Console.WriteLine(obj);
+      dict = new Dictionary<string, string>();
+      str = "{\"f\":[\n {\n # B\t \tA C\n # Dm\n\"a\":1,\n\"b\":2\n},{\n #" +
+        "\u0020Sm\n\"a\":3,\n\"b\":4\n}\n]}";
+      obj = JSONWithComments.FromJSONString(str);
+      Console.WriteLine(obj);
+      obj = JSONWithComments.FromJSONStringWithPointers(str, dict);
+      foreach (string key in dict.Keys) {
+        Console.WriteLine(key);
+        Console.WriteLine(dict[key]);
+        Console.WriteLine(obj.AtJSONPointer(dict[key]));
+      }
+      Console.WriteLine(obj);
+    }
+
+    [Test]
     public void TestParseDecimalStrings() {
       var rand = new RandomGenerator();
       for (var i = 0; i < 3000; ++i) {
@@ -2056,7 +2134,7 @@ namespace Test {
         Assert.Fail();
       }
       try {
-        using (var lms = new MemoryStream()) {
+        using (var lms = new Test.DelayingStream()) {
           root.WriteTo(lms, encodeOptions);
           Assert.Fail("Should have failed");
         }
@@ -2283,7 +2361,7 @@ namespace Test {
     }
 
     public static void TestRandomOne(byte[] array) {
-      using (var inputStream = new MemoryStream(array)) {
+      using (var inputStream = new Test.DelayingStream(array)) {
         while (inputStream.Position != inputStream.Length) {
           long oldPos = 0L;
           try {
@@ -2356,10 +2434,10 @@ namespace Test {
     private static void TestReadWriteIntOne(int val) {
       try {
         {
-          using (var ms = new MemoryStream()) {
+          using (var ms = new Test.DelayingStream()) {
             MiniCBOR.WriteInt32(val, ms);
             byte[] msarray = ms.ToArray();
-            using (var ms2 = new MemoryStream(msarray)) {
+            using (var ms2 = new Test.DelayingStream(msarray)) {
               Assert.AreEqual(
                 val,
                 MiniCBOR.ReadInt32(ms2),
@@ -2368,10 +2446,10 @@ namespace Test {
           }
         }
         {
-          using (var ms = new MemoryStream()) {
+          using (var ms = new Test.DelayingStream()) {
             CBORObject.Write(val, ms);
             byte[] msarray = ms.ToArray();
-            using (var ms2 = new MemoryStream(msarray)) {
+            using (var ms2 = new Test.DelayingStream(msarray)) {
               Assert.AreEqual(
                 val,
                 MiniCBOR.ReadInt32(ms2),
@@ -2380,7 +2458,7 @@ namespace Test {
           }
         }
       } catch (IOException ioex) {
-        Assert.Fail(ioex.Message);
+        Assert.Fail(ioex.Message + " val=" + val);
       }
     }
 
@@ -4165,7 +4243,7 @@ namespace Test {
           Assert.AreEqual(0, cbor[0].TagCount);
         }
         try {
-          using (var ms = new MemoryStream()) {
+          using (var ms = new Test.DelayingStream()) {
             CBORObject.Write(ef, ms);
             cbor = CBORObject.DecodeFromBytes(ms.ToArray());
             Assert.IsTrue(cbor.IsNumber, cbor.ToString());
@@ -4197,7 +4275,7 @@ namespace Test {
             Assert.AreEqual(CBORType.Integer, cbor[0].Type);
             Assert.AreEqual(0, cbor[0].TagCount);
           }
-          using (var ms2 = new MemoryStream()) {
+          using (var ms2 = new Test.DelayingStream()) {
             CBORObject.Write(ed, ms2);
             cbor = CBORObject.DecodeFromBytes(ms2.ToArray());
             Assert.IsTrue(cbor.IsNumber, cbor.ToString());
@@ -4258,7 +4336,7 @@ namespace Test {
       }
       options = new CBOREncodeOptions("allowempty=true");
       Assert.AreEqual(null, CBORObject.DecodeFromBytes(bytes, options));
-      using (var ms = new MemoryStream(bytes)) {
+      using (var ms = new Test.DelayingStream(bytes)) {
         options = new CBOREncodeOptions(String.Empty);
         try {
           CBORObject.Read(ms, options);
@@ -4270,7 +4348,7 @@ namespace Test {
           throw new InvalidOperationException(String.Empty, ex);
         }
       }
-      using (var ms = new MemoryStream(bytes)) {
+      using (var ms = new Test.DelayingStream(bytes)) {
         options = new CBOREncodeOptions("allowempty=true");
         Assert.AreEqual(null, CBORObject.Read(ms, options));
       }
@@ -4619,6 +4697,32 @@ namespace Test {
     }
 
     [Test]
+    public void TestWriteBasic() {
+      var jsonop1 = new JSONOptions("writebasic=true");
+      string json = CBORObject.FromObject("\uD800\uDC00").ToJSONString(jsonop1);
+      Assert.AreEqual("\"\\uD800\\uDC00\"", json);
+      json = CBORObject.FromObject("\u0800\u0C00").ToJSONString(jsonop1);
+      Assert.AreEqual("\"\\u0800\\u0C00\"", json);
+      json = CBORObject.FromObject("\u0085\uFFFF").ToJSONString(jsonop1);
+      Assert.AreEqual("\"\\u0085\\uFFFF\"", json);
+      var rg = new RandomGenerator();
+      for (var i = 0; i < 1000; ++i) {
+        string rts = RandomObjects.RandomTextString(rg);
+        CBORObject cbor = CBORObject.FromObject(rts);
+        json = cbor.ToJSONString(jsonop1);
+        // Check that the JSON contains only ASCII code points
+        for (var j = 0; j < json.Length; ++j) {
+          char c = json[j];
+          if ((c < 0x20 && c != 0x09 && c != 0x0a && c != 0x0d) || c >= 0x7f) {
+            Assert.Fail(rts);
+          }
+        }
+        // Round-trip check
+        Assert.AreEqual(cbor, CBORObject.FromJSONString(json));
+      }
+    }
+
+    [Test]
     public void TestJSONOptions() {
       var jsonop1 = new JSONOptions("numberconversion=intorfloat");
       {
@@ -4676,21 +4780,21 @@ namespace Test {
       var jsonop3 = new JSONOptions("numberconversion=intorfloatfromdouble");
       var jsonop4 = new JSONOptions("numberconversion=double");
       for (var i = 0; i < 200; ++i) {
-        byte[] json = jsongen.Generate(rg);
-        Console.WriteLine(String.Empty + i + " len=" + json.Length);
+        byte[] jsonbytes = jsongen.Generate(rg);
+        // Console.WriteLine(String.Empty + i + " len=" + jsonbytes.Length);
         JSONOptions currop = null;
         try {
           currop = jsonop1;
-          CBORObject.FromJSONBytes(json, jsonop1);
+          CBORObject.FromJSONBytes(jsonbytes, jsonop1);
           currop = jsonop2;
-          CBORObject.FromJSONBytes(json, jsonop2);
+          CBORObject.FromJSONBytes(jsonbytes, jsonop2);
           currop = jsonop3;
-          CBORObject.FromJSONBytes(json, jsonop3);
+          CBORObject.FromJSONBytes(jsonbytes, jsonop3);
           currop = jsonop4;
-          CBORObject.FromJSONBytes(json, jsonop4);
+          CBORObject.FromJSONBytes(jsonbytes, jsonop4);
         } catch (CBORException ex) {
           string msg = ex.Message + "\n" +
-            DataUtilities.GetUtf8String(json, true) + "\n" + currop;
+            DataUtilities.GetUtf8String(jsonbytes, true) + "\n" + currop;
           throw new InvalidOperationException(msg, ex);
         }
       }
@@ -4739,7 +4843,7 @@ namespace Test {
     public static void TestWriteToJSON(CBORObject obj) {
       CBORObject objA = null;
       string jsonString = String.Empty;
-      using (var ms = new MemoryStream()) {
+      using (var ms = new Test.DelayingStream()) {
         try {
           if (obj == null) {
             throw new ArgumentNullException(nameof(obj));

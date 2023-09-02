@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Reflection;
@@ -50,7 +49,7 @@ array.Length);
       }
       return false;
     }
-
+/*
     public static void Main() {
       if (!Extra()) {
         return;
@@ -90,5 +89,6 @@ array.Length);
         }
       }
     }
+*/
   }
 }

@@ -48,6 +48,7 @@ The ReadJSON and FromJSONString methods currently have nesting depths of 1000.
 * <code>[Add(object, object)](#Add_object_object)</code> - Adds a new key and its value to this CBOR map, or adds the value if the key doesn't exist.
 * <code>[Add(PeterO.Cbor.CBORObject)](#Add_PeterO_Cbor_CBORObject)</code> - Adds a new object to the end of this array.
 * <code>[Addition(PeterO.Cbor.CBORObject, PeterO.Cbor.CBORObject)](#Addition_PeterO_Cbor_CBORObject_PeterO_Cbor_CBORObject)</code> - <b>Deprecated:</b> Instead, convert both CBOR objects to numbers (with .AsNumber()), and use the first number's .Add() method.
+* <code>[ApplyJSONPatch(PeterO.Cbor.CBORObject)](#ApplyJSONPatch_PeterO_Cbor_CBORObject)</code> - Returns a copy of this object after applying the operations in a JSON patch, in the form of a CBOR object.
 * <code>[AsBoolean()](#AsBoolean)</code> - Returns false if this object is a CBOR false, null, or undefined value (whether or not the object has tags); otherwise, true.
 * <code>[AsByte()](#AsByte)</code> - <b>Deprecated:</b> Instead, use .ToObject&lt;byte&gt;() in .NET or .ToObject(Byte.class) in Java.
 * <code>[AsDecimal()](#AsDecimal)</code> - <b>Deprecated:</b> Instead, use .ToObject&lt;decimal&gt;().
@@ -71,6 +72,8 @@ The ReadJSON and FromJSONString methods currently have nesting depths of 1000.
 * <code>[AsUInt16()](#AsUInt16)</code> - <b>Deprecated:</b> Instead, use the following: (cbor.AsNumber().ToUInt16Checked()), or .ToObject&lt;ushort&gt;().
 * <code>[AsUInt32()](#AsUInt32)</code> - <b>Deprecated:</b> Instead, use the following: (cbor.AsNumber().ToUInt32Checked()), or .ToObject&lt;uint&gt;().
 * <code>[AsUInt64()](#AsUInt64)</code> - <b>Deprecated:</b> Instead, use the following: (cbor.AsNumber().ToUInt64Checked()), or .ToObject&lt;ulong&gt;().
+* <code>[AtJSONPointer(string)](#AtJSONPointer_string)</code> - Gets the CBOR object referred to by a JSON Pointer according to RFC6901.
+* <code>[AtJSONPointer(string, PeterO.Cbor.CBORObject)](#AtJSONPointer_string_PeterO_Cbor_CBORObject)</code> - Gets the CBOR object referred to by a JSON Pointer according to RFC6901, or a default value if the operation fails.
 * <code>[CalcEncodedSize()](#CalcEncodedSize)</code> - Calculates the number of bytes this CBOR object takes when serialized as a byte array using the EncodeToBytes() method.
 * <code>[CanFitInDouble()](#CanFitInDouble)</code> - <b>Deprecated:</b> Instead, use the following: (cbor.IsNumber &amp;&amp; cbor.AsNumber().CanFitInDouble()).
 * <code>[CanFitInInt32()](#CanFitInInt32)</code> - <b>Deprecated:</b> Instead, use .CanValueFitInInt32(), if the application allows only CBOR integers, or (cbor.IsNumber &amp;&amp;cbor.AsNumber().CanFitInInt32()), if the application allows any CBOR object convertible to an integer.
@@ -753,6 +756,38 @@ The parameter  <i>first</i>
  or  <i>second</i>
  is null.
 
+<a id="ApplyJSONPatch_PeterO_Cbor_CBORObject"></a>
+### ApplyJSONPatch
+
+    public PeterO.Cbor.CBORObject ApplyJSONPatch(
+        PeterO.Cbor.CBORObject patch);
+
+Returns a copy of this object after applying the operations in a JSON patch, in the form of a CBOR object. JSON patches are specified in RFC 6902 and their format is summarized in the remarks below.
+
+<b>Remarks:</b> A JSON patch is an array with one or more maps. Each map has the following keys:
+
+ * "op" - Required. This key's value is the patch operation and must be "add", "remove", "move", "copy", "test", or "replace", in basic lower case letters and no other case combination.
+
+ * "value" - Required if the operation is "add", "replace", or "test" and specifies the item to add (insert), or that will replace the existing item, or to check an existing item for equality, respectively. (For "test", the operation fails if the existing item doesn't match the specified value.)
+
+ * "path" - Required for all operations. A JSON Pointer (RFC 6901) specifying the destination path in the CBOR object for the operation. For more information, see RFC 6901 or the documentation for AtJSONPointer(pointer, defaultValue).
+
+ * "from" - Required if the operation is "move" or "copy". A JSON Pointer (RFC 6901) specifying the path in the CBOR object where the source value is located.
+
+<b>Parameters:</b>
+
+ * <i>patch</i>: A JSON patch in the form of a CBOR object; it has the form summarized in the remarks.
+
+<b>Return Value:</b>
+
+The result of the patch operation.
+
+<b>Exceptions:</b>
+
+ * PeterO.Cbor.CBORException:
+The parameter  <i>patch</i>
+ is null or the patch operation failed.
+
 <a id="AsBoolean"></a>
 ### AsBoolean
 
@@ -1217,6 +1252,48 @@ This object does not represent a number (for this purpose, infinities and not-a-
 
  * System.OverflowException:
 This object's value, if converted to an integer by discarding its fractional part, is outside the range of a 64-bit unsigned integer.
+
+<a id="AtJSONPointer_string"></a>
+### AtJSONPointer
+
+    public PeterO.Cbor.CBORObject AtJSONPointer(
+        string pointer);
+
+Gets the CBOR object referred to by a JSON Pointer according to RFC6901. For more information, see the overload taking a default value parameter.
+
+<b>Parameters:</b>
+
+ * <i>pointer</i>: A JSON pointer according to RFC 6901.
+
+<b>Return Value:</b>
+
+An object within this CBOR object. Returns this object if pointer is the empty string (even if this object has a CBOR type other than array or map).
+
+<b>Exceptions:</b>
+
+ * PeterO.Cbor.CBORException:
+Thrown if the pointer is null, or if the pointer is invalid, or if there is no object at the given pointer, or the special key "-" appears in the pointer in the context of an array (not a map), or if the pointer is non-empty and this object has a CBOR type other than array or map.
+
+<a id="AtJSONPointer_string_PeterO_Cbor_CBORObject"></a>
+### AtJSONPointer
+
+    public PeterO.Cbor.CBORObject AtJSONPointer(
+        string pointer,
+        PeterO.Cbor.CBORObject defaultValue);
+
+Gets the CBOR object referred to by a JSON Pointer according to RFC6901, or a default value if the operation fails. The syntax for a JSON Pointer is: '/' KEY '/' KEY [...] where KEY represents a key into the JSON object or its sub-objects in the hierarchy. For example, /foo/2/bar means the same as obj['foo'][2]['bar'] in JavaScript. If "~" and/or "/" occurs in a key, it must be escaped with "~0" or "~1", respectively, in a JSON pointer. JSON pointers also support the special key "-" (as in "/foo/-") to indicate the end of an array, but this method treats this key as an error since it refers to a nonexistent item. Indices to arrays (such as 2 in the example) must contain only basic digits 0 to 9 and no leading zeros. (Note that RFC 6901 was published before JSON was extended to support top-level values other than arrays and key-value dictionaries.).
+
+<b>Parameters:</b>
+
+ * <i>pointer</i>: A JSON pointer according to RFC 6901.
+
+ * <i>defaultValue</i>: The parameter  <i>defaultValue</i>
+ is a Cbor.CBORObject object.
+
+<b>Return Value:</b>
+
+An object within the specified JSON object. Returns this object if pointer is the empty string (even if this object has a CBOR type other than array or map). Returns  <i>defaultValue</i>
+ if the pointer is null, or if the pointer is invalid, or if there is no object at the given pointer, or the special key "-" appears in the pointer in the context of an array (not a map), or if the pointer is non-empty and this object has a CBOR type other than array or map.
 
 <a id="CalcEncodedSize"></a>
 ### CalcEncodedSize
@@ -1992,7 +2069,7 @@ Note that if a CBOR object is converted to JSON with  `ToJSONBytes` , then the J
 
 <b>Parameters:</b>
 
- * <i>bytes</i>: A byte array in JSON format. The entire byte array must contain a single JSON object and not multiple objects. The byte array may begin with a byte-order mark (U+FEFF). The byte array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F).
+ * <i>bytes</i>: A byte array in JSON format. The entire byte array must contain a single JSON object and not multiple objects. The byte array may begin with a byte-order mark (U+FEFF). The byte array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
 <b>Return Value:</b>
 
@@ -2023,7 +2100,7 @@ Note that if a CBOR object is converted to JSON with  `ToJSONBytes` , then the J
 
 <b>Parameters:</b>
 
- * <i>bytes</i>: A byte array, the specified portion of which is in JSON format. The specified portion of the byte array must contain a single JSON object and not multiple objects. The portion may begin with a byte-order mark (U+FEFF). The portion can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F).
+ * <i>bytes</i>: A byte array, the specified portion of which is in JSON format. The specified portion of the byte array must contain a single JSON object and not multiple objects. The portion may begin with a byte-order mark (U+FEFF). The portion can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
  * <i>offset</i>: An index, starting at 0, showing where the desired portion of  <i>bytes</i>
  begins.
@@ -2067,7 +2144,7 @@ Generates a CBOR object from a byte array in JavaScript Object Notation (JSON) f
 
 <b>Parameters:</b>
 
- * <i>bytes</i>: A byte array, the specified portion of which is in JSON format. The specified portion of the byte array must contain a single JSON object and not multiple objects. The portion may begin with a byte-order mark (U+FEFF). The portion can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F).
+ * <i>bytes</i>: A byte array, the specified portion of which is in JSON format. The specified portion of the byte array must contain a single JSON object and not multiple objects. The portion may begin with a byte-order mark (U+FEFF). The portion can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
  * <i>offset</i>: An index, starting at 0, showing where the desired portion of  <i>bytes</i>
  begins.
@@ -2112,7 +2189,7 @@ Generates a CBOR object from a byte array in JavaScript Object Notation (JSON) f
 
 <b>Parameters:</b>
 
- * <i>bytes</i>: A byte array in JSON format. The entire byte array must contain a single JSON object and not multiple objects. The byte array may begin with a byte-order mark (U+FEFF). The byte array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F).
+ * <i>bytes</i>: A byte array in JSON format. The entire byte array must contain a single JSON object and not multiple objects. The byte array may begin with a byte-order mark (U+FEFF). The byte array can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
  * <i>jsonoptions</i>: Specifies options to control how the JSON data is decoded to CBOR. See the JSONOptions class.
 
@@ -2444,7 +2521,7 @@ A CBORObject object with the same value as the.NET decimal.
     public static PeterO.Cbor.CBORObject FromObject(
         double value);
 
-Generates a CBOR object from a 64-bit floating-point number.
+Generates a CBOR object from a 64-bit floating-point number. The input value can be a not-a-number (NaN) value (such as  `Double.NaN`  ); however, NaN values have multiple forms that are equivalent for many applications' purposes, and  `Double.NaN`  is only one of these equivalent forms. In fact,  `CBORObject.FromObject(Double.NaN)`  could produce a CBOR-encoded object that differs between DotNet and Java, because  `Double.NaN`  may have a different form in DotNet and Java (for example, the NaN value's sign may be negative in DotNet, but positive in Java).
 
 <b>Parameters:</b>
 
@@ -2461,7 +2538,7 @@ A CBOR object generated from the given number.
     public static PeterO.Cbor.CBORObject FromObject(
         float value);
 
-Generates a CBOR object from a 32-bit floating-point number.
+Generates a CBOR object from a 32-bit floating-point number. The input value can be a not-a-number (NaN) value (such as  `Single.NaN`  in DotNet or Float.NaN in Java); however, NaN values have multiple forms that are equivalent for many applications' purposes, and  `Single.NaN`  /  `Float.NaN`  is only one of these equivalent forms. In fact,  `CBORObject.FromObject(Single.NaN)`  or  `CBORObject.FromObject(Float.NaN)`  could produce a CBOR-encoded object that differs between DotNet and Java, because  `Single.NaN`  /  `Float.NaN`  may have a different form in DotNet and Java (for example, the NaN value's sign may be negative in DotNet, but positive in Java).
 
 <b>Parameters:</b>
 
@@ -2549,7 +2626,7 @@ Generates a CBORObject from an arbitrary object. See the overload of this method
 <b>Parameters:</b>
 
  * <i>obj</i>: The parameter  <i>obj</i>
- is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -2569,7 +2646,7 @@ Generates a CBORObject from an arbitrary object. See the overload of this method
 <b>Parameters:</b>
 
  * <i>obj</i>: The parameter  <i>obj</i>
- is an arbitrary object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -2665,7 +2742,7 @@ In the Java version, which has java.math.BigInteger, the following can be used i
 
 <b>Parameters:</b>
 
- * <i>obj</i>: An arbitrary object to convert to a CBOR object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ * <i>obj</i>: An arbitrary object to convert to a CBOR object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
  .
 
@@ -2698,7 +2775,7 @@ Generates a CBORObject from an arbitrary object. See the overload of this method
 <b>Parameters:</b>
 
  * <i>obj</i>: The parameter  <i>obj</i>
- is an arbitrary object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -2970,7 +3047,7 @@ Generates a CBOR object from an arbitrary object and gives the resulting object 
 <b>Parameters:</b>
 
  * <i>o</i>: The parameter  <i>o</i>
- is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -2994,7 +3071,7 @@ Generates a CBOR object from an arbitrary object and gives the resulting object 
 <b>Parameters:</b>
 
  * <i>valueOb</i>: The parameter  <i>valueOb</i>
- is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -3029,7 +3106,7 @@ Generates a CBOR object from an arbitrary object and gives the resulting object 
 <b>Parameters:</b>
 
  * <i>valueObValue</i>: The parameter  <i>valueObValue</i>
- is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object, which can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -3773,7 +3850,7 @@ There was an error in reading or parsing the data.
     public static PeterO.Cbor.CBORObject ReadJSON(
         System.IO.Stream stream);
 
-Generates a CBOR object from a data stream in JavaScript Object Notation (JSON) format. The JSON stream may begin with a byte-order mark (U+FEFF). Since version 2.0, the JSON stream can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (In previous versions, only UTF-8 was allowed.).
+Generates a CBOR object from a data stream in JavaScript Object Notation (JSON) format. The JSON stream may begin with a byte-order mark (U+FEFF). Since version 2.0, the JSON stream can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (In previous versions, only UTF-8 was allowed.). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
 <b>Parameters:</b>
 
@@ -3835,7 +3912,7 @@ The data stream contains invalid encoding or is not in JSON format.
         System.IO.Stream stream,
         PeterO.Cbor.JSONOptions jsonoptions);
 
-Generates a CBOR object from a data stream in JavaScript Object Notation (JSON) format, using the specified options to control the decoding process. The JSON stream may begin with a byte-order mark (U+FEFF). Since version 2.0, the JSON stream can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (In previous versions, only UTF-8 was allowed.).
+Generates a CBOR object from a data stream in JavaScript Object Notation (JSON) format, using the specified options to control the decoding process. The JSON stream may begin with a byte-order mark (U+FEFF). Since version 2.0, the JSON stream can be in UTF-8, UTF-16, or UTF-32 encoding; the encoding is detected by assuming that the first character read must be a byte-order mark or a nonzero basic character (U+0001 to U+007F). (In previous versions, only UTF-8 was allowed.). (This behavior may change to supporting only UTF-8, with or without a byte order mark, in version 5.0 or later, perhaps with an option to restore the previous behavior of also supporting UTF-16 and UTF-32.).
 
 <b>Parameters:</b>
 
@@ -4204,22 +4281,22 @@ A byte array containing the converted in JSON format.
 The example code given below (originally written in C# for the.NET version) can be used to write out certain keys of a CBOR map in a given order to a JSON string.
 
     /* Generates a JSON string of 'mapObj' whose keys are in the order
-                 given
-                 in 'keys' . Only keys found in 'keys' will be written if they exist in
-                 'mapObj'. */ private static string KeysToJSONMap(CBORObject mapObj,
-                 IList<CBORObject> keys) { if (mapObj == null) { throw new
-                 ArgumentNullException)nameof(mapObj));}
-                 if (keys == null) { throw new
-                 ArgumentNullException)nameof(keys));}
-                 if (obj.Type != CBORType.Map) {
-                 throw new ArgumentException("'obj' is not a map."); } StringBuilder
-                 builder = new StringBuilder(); var first = true; builder.Append("{");
-                 for (CBORObject key in keys) { if (mapObj.ContainsKey(key)) { if
-                 (!first) {builder.Append(", ");} var keyString=(key.CBORType ==
-                 CBORType.String) ? key.AsString() : key.ToJSONString();
-                 builder.Append(CBORObject.FromObject(keyString) .ToJSONString())
-                 .Append(":").Append(mapObj[key].ToJSONString()); first=false; } } return
-                 builder.Append("}").ToString(); }
+                given
+                in 'keys' . Only keys found in 'keys' will be written if they exist in
+                'mapObj'. */ private static string KeysToJSONMap(CBORObject mapObj,
+                IList<CBORObject> keys) { if (mapObj == null) { throw new
+                ArgumentNullException)nameof(mapObj));}
+                if (keys == null) { throw new
+                ArgumentNullException)nameof(keys));}
+                if (obj.Type != CBORType.Map) {
+                throw new ArgumentException("'obj' is not a map."); } StringBuilder
+                builder = new StringBuilder(); var first = true; builder.Append("{");
+                for (CBORObject key in keys) { if (mapObj.ContainsKey(key)) { if
+                (!first) {builder.Append(", ");} var keyString=(key.CBORType ==
+                CBORType.String) ? key.AsString() : key.ToJSONString();
+                builder.Append(CBORObject.FromObject(keyString) .ToJSONString())
+                .Append(":").Append(mapObj[key].ToJSONString()); first=false; } } return
+                builder.Append("}").ToString(); }
 
  .
 
@@ -4378,9 +4455,9 @@ Converts this CBOR object to an object of an arbitrary type. The following cases
 
  * If the type is a one-dimensional or multidimensional array type and this CBOR object is an array, returns an array containing the items in this CBOR object.
 
- * If the type is List or the generic or non-generic IList, ICollection, or IEnumerable, (or ArrayList, List, Collection, or Iterable in Java), and if this CBOR object is an array, returns an object conforming to the type, class, or interface passed to this method, where the object will contain all items in this CBOR array.
+ * If the type is List, ReadOnlyCollection or the generic or non-generic IList, ICollection, IEnumerable, IReadOnlyCollection, or IReadOnlyList (or ArrayList, List, Collection, or Iterable in Java), and if this CBOR object is an array, returns an object conforming to the type, class, or interface passed to this method, where the object will contain all items in this CBOR array.
 
- * If the type is Dictionary or the generic or non-generic IDictionary (or HashMap or Map in Java), and if this CBOR object is a map, returns an object conforming to the type, class, or interface passed to this method, where the object will contain all keys and values in this CBOR map.
+ * If the type is Dictionary, ReadOnlyDictionary or the generic or non-generic IDictionary or IReadOnlyDictionary (or HashMap or Map in Java), and if this CBOR object is a map, returns an object conforming to the type, class, or interface passed to this method, where the object will contain all keys and values in this CBOR map.
 
  * If the type is an enumeration constant ("enum"), and this CBOR object is an integer or text string, returns the enumeration constant with the given number or name, respectively. (Enumeration constants made up of multiple enumeration constants, as allowed by .NET, can only be matched by number this way.)
 
@@ -4839,7 +4916,7 @@ Writes an arbitrary object to a CBOR data stream, using the specified options fo
 
 <b>Parameters:</b>
 
- * <i>objValue</i>: The arbitrary object to be serialized. Can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ * <i>objValue</i>: The arbitrary object to be serialized. Can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 
@@ -5282,7 +5359,7 @@ Converts an arbitrary object to a text string in JavaScript Object Notation (JSO
 <b>Parameters:</b>
 
  * <i>obj</i>: The parameter  <i>obj</i>
- is an arbitrary object. Can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data unless the application limits this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
+ is an arbitrary object. Can be null. <b>NOTE:</b> For security reasons, whenever possible, an application should not base this parameter on user input or other externally supplied data, and whenever possible, the application should limit this parameter's inputs to types specially handled by this method (such as  `int`  or  `String`  ) and/or to plain-old-data types (POCO or POJO types) within the control of the application. If the plain-old-data type references other data types, those types should likewise meet either criterion above.
 
 .
 

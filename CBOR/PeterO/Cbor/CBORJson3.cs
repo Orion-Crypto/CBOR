@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Collections.Generic;
@@ -338,7 +337,6 @@ namespace PeterO.Cbor {
             ") is not greater or equal to " + numberStartIndex);
         }
         #endif
-
         c = numberEndIndex >= this.endPos ? -1 : this.jstring[numberEndIndex];
         // check if character can validly appear after a JSON number
         if (c != ',' && c != ']' && c != '}' && c != -1 &&
@@ -348,6 +346,12 @@ namespace PeterO.Cbor {
         // DebugUtility.Log("endIndex="+endIndex[0]+", "+
         // this.jstring.Substring(endIndex[0],
         // Math.Min(20, this.endPos-endIndex[0])));
+      } else {
+        // check if character can validly appear after a JSON number
+        if (c != ',' && c != ']' && c != '}' && c != -1 &&
+          c != 0x20 && c != 0x0a && c != 0x0d && c != 0x09) {
+          this.RaiseError("Invalid character after JSON number");
+        }
       }
       if (c == -1 || (c != 0x20 && c != 0x0a && c != 0x0d && c != 0x09)) {
         nextChar[0] = c;
@@ -560,7 +564,9 @@ namespace PeterO.Cbor {
       CBORObject obj;
       var nextchar = new int[1];
       var seenComma = false;
-      var myHashMap = new SortedDictionary<CBORObject, CBORObject>();
+      IDictionary<CBORObject, CBORObject> myHashMap =
+this.options.KeepKeyOrder ? PropertyMap.NewOrderedDict() : new
+SortedDictionary<CBORObject, CBORObject>();
       while (true) {
         c = this.SkipWhitespaceJSON();
         switch (c) {

@@ -3,61 +3,79 @@ Written in 2013-2018 by Peter Occil.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
+https://creativecommons.org/publicdomain/zero/1.0/
 
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
 */
 using System;
 using System.Collections.Generic;
 using System.Text;
-using PeterO.Cbor;
 using PeterO.Numbers;
 
-namespace Test {
-  public sealed class JSONPointer {
+namespace PeterO.Cbor {
+  internal sealed class JSONPointer {
+    private readonly string refValue;
+    private readonly bool isRoot;
+    private readonly CBORObject jsonobj;
+
     public static JSONPointer FromPointer(CBORObject obj, string pointer) {
       var index = 0;
       if (pointer == null) {
         throw new ArgumentNullException(nameof(pointer));
       }
+      if (obj == null) {
+        throw new ArgumentNullException(nameof(obj));
+      }
       if (pointer.Length == 0) {
-        return new JSONPointer(obj, pointer);
+        return new JSONPointer(obj, pointer, true);
       }
       while (true) {
         if (obj == null) {
-          throw new ArgumentNullException(nameof(obj));
+            throw new CBORException("Invalid pointer: obj is null");
         }
         if (obj.Type == CBORType.Array) {
           if (index >= pointer.Length || pointer[index] != '/') {
-            throw new ArgumentException(pointer);
+            throw new CBORException("Invalid pointer");
           }
           ++index;
           var value = new int[] { 0 };
+          // DebugUtility.Log("index parse 0: " + (pointer.Substring(index)));
           int newIndex = ReadPositiveInteger(pointer, index, value);
+          // DebugUtility.Log("index parse 1: " + (pointer.Substring(newIndex)));
           if (value[0] < 0) {
             if (index < pointer.Length && pointer[index] == '-' &&
               (index + 1 == pointer.Length || pointer[index + 1] == '/')) {
               // Index at the end of the array
               return new JSONPointer(obj, "-");
             }
-            throw new ArgumentException(pointer);
+            throw new CBORException("Invalid pointer");
           }
           if (newIndex == pointer.Length) {
             return new JSONPointer(obj, pointer.Substring(index));
+          } else if (value[0] > obj.Count) {
+            throw new CBORException("Invalid array index in pointer");
+          } else if (value[0] == obj.Count) {
+            if (newIndex + 1 == pointer.Length) {
+              return new JSONPointer(obj, pointer.Substring(index));
+            }
+            throw new CBORException("Invalid array index in pointer");
           } else {
             obj = obj[value[0]];
+#if DEBUG
+            if (obj == null) {
+              throw new ArgumentNullException(nameof(obj));
+            }
+#endif
+
             index = newIndex;
           }
           index = newIndex;
         } else if (obj.Type == CBORType.Map) {
-          if (obj.Equals(CBORObject.Null)) {
-            throw new KeyNotFoundException(pointer);
-          }
+          // DebugUtility.Log("Parsing map key(0) " + (pointer.Substring(index)));
           if (index >= pointer.Length || pointer[index] != '/') {
-            throw new ArgumentException(pointer);
+            throw new CBORException("Invalid pointer");
           }
           ++index;
+          // DebugUtility.Log("Parsing map key " + (pointer.Substring(index)));
           string key = null;
           int oldIndex = index;
           var tilde = false;
@@ -96,7 +114,7 @@ namespace Test {
                     continue;
                   }
                 }
-                throw new ArgumentException(pointer);
+                throw new CBORException("Invalid pointer");
               } else {
                 sb.Append((char)c);
               }
@@ -107,37 +125,39 @@ namespace Test {
           if (index == pointer.Length) {
             return new JSONPointer(obj, key);
           } else {
-            obj = ((CBORObject)obj)[key];
+            obj = obj.GetOrDefault(key, null);
+            if (obj == null) {
+              throw new CBORException("Invalid pointer; key not found");
+            }
           }
         } else {
-          throw new KeyNotFoundException(pointer);
+          throw new CBORException("Invalid pointer");
         }
       }
     }
 
-    /// <summary>Gets the JSON object referred to by a JSON Pointer
-    /// according to RFC6901. The syntax for pointers is:
-    /// <pre>'/' KEY '/' KEY [...]</pre> where KEY represents a key into
-    /// the JSON object or its sub-objects in the hierarchy. For example,
-    /// <pre>/foo/2/bar</pre> means the same as
-    /// <pre>obj['foo'][2]['bar']</pre> in JavaScript. If "~" and/or "/"
-    /// occurs in a key, it must be escaped with "~0" or "~1",
-    /// respectively, in a JSON pointer.</summary>
-    /// <param name='obj'>A CBOR object.</param>
-    /// <param name='pointer'>A JSON pointer according to RFC 6901.</param>
-    /// <returns>An object within the specified JSON object, or <paramref
-    /// name='obj'/> if pointer is the empty string, if the pointer is
-    /// null, if the pointer is invalid , if there is no JSON object at the
-    /// given pointer, or if <paramref name='obj'/> is not of type
-    /// CBORObject, unless pointer is the empty string.</returns>
-    /// <exception cref='ArgumentNullException'>The parameter <paramref
-    /// name='pointer'/> is null.</exception>
-    public static Object GetObject(CBORObject obj, string pointer) {
-      if (pointer == null) {
-        throw new ArgumentNullException(nameof(pointer));
+    public static CBORObject GetObject(
+      CBORObject obj,
+      string pointer,
+      CBORObject defaultValue) {
+      if (obj == null) {
+        throw new CBORException("obj");
       }
-      return (pointer.Length == 0) ? obj :
-        JSONPointer.FromPointer(obj, pointer).GetValue();
+      if (pointer == null) {
+        return defaultValue;
+      }
+      if (pointer.Length == 0) {
+        return obj;
+      }
+      if (obj.Type != CBORType.Array && obj.Type != CBORType.Map) {
+        return defaultValue;
+      }
+      try {
+         CBORObject cobj = JSONPointer.FromPointer(obj, pointer).GetValue();
+         return cobj == null ? defaultValue : cobj;
+      } catch (CBORException) {
+         return defaultValue;
+      }
     }
 
     private static int ReadPositiveInteger(
@@ -148,18 +168,21 @@ namespace Test {
       var haveZeros = false;
       int oldIndex = index;
       result[0] = -1;
-      while (index < str.Length) { // skip zeros
-        int c = str[index++];
-        if (c != '0') {
-          --index;
-          break;
-        }
-        if (haveZeros) {
-          --index;
-          return index;
-        }
-        haveNumber = true;
-        haveZeros = true;
+      if (index == str.Length) {
+        return index;
+      }
+      if (str.Length - 1 == index && str[index] == '0') {
+        result[0] = 0;
+        return index + 1;
+      }
+      if (str.Length - 1 > index && str[index] == '0' && str[index + 1] !=
+'0') {
+        result[0] = 0;
+        return index + 1;
+      }
+      if (str[index] == '0') {
+         // NOTE: Leading zeros not allowed in JSON Pointer numbers
+         return index;
       }
       long lvalue = 0;
       while (index < str.Length) {
@@ -185,21 +208,26 @@ namespace Test {
       return index;
     }
 
-    private string refValue;
+    private JSONPointer(CBORObject jsonobj, string refValue)
+        : this(jsonobj, refValue, false) {
+    }
 
-    private CBORObject jsonobj;
-
-    private JSONPointer(CBORObject jsonobj, string refValue) {
+    private JSONPointer(CBORObject jsonobj, string refValue, bool isRoot) {
       #if DEBUG
       if (!(refValue != null)) {
         throw new InvalidOperationException("doesn't satisfy refValue!=null");
       }
       #endif
+      this.isRoot = isRoot;
       this.jsonobj = jsonobj;
       this.refValue = refValue;
     }
 
     public bool Exists() {
+      if (this.refValue.Length == 0) {
+        // Root always exists
+        return true;
+      }
       if (this.jsonobj.Type == CBORType.Array) {
         if (this.refValue.Equals("-", StringComparison.Ordinal)) {
           return false;
@@ -244,7 +272,8 @@ namespace Test {
     }
 
     public CBORObject GetValue() {
-      if (this.refValue.Length == 0) {
+      if (this.isRoot) {
+        // Root always exists
         return this.jsonobj;
       }
       CBORObject tmpcbor = null;
@@ -257,26 +286,30 @@ namespace Test {
           return null;
         }
       } else if (this.jsonobj.Type == CBORType.Map) {
+        // DebugUtility.Log("jsonobj=" + this.jsonobj + " refValue=[" + this.refValue
+        // + "]");
         tmpcbor = this.jsonobj;
-        return tmpcbor[this.refValue];
+        return tmpcbor.GetOrDefault(this.refValue, null);
       } else {
         return (this.refValue.Length == 0) ? this.jsonobj : null;
       }
     }
 
     /// <summary>Gets all children of the specified JSON object that
-    /// contain the specified key. The method will not remove matching
-    /// keys. As an example, consider this object:
+    /// contain the specified key; the method will remove matching keys. As
+    /// an example, consider this object:
     /// <pre>[{"key":"value1","foo":"foovalue"},
     /// {"key":"value2","bar":"barvalue"}, {"baz":"bazvalue"}]</pre> If
     /// getPointersToKey is called on this object with a keyToFind called
     /// "key", we get the following Map as the return value:
     /// <pre>{ "/0" => "value1", // "/0" points to {"foo":"foovalue"} "/1"
-    /// => "value2" // "/1" points to {"bar":"barvalue"} }</pre> and the
+    /// => "value2" /* "/1" points to {"bar":"barvalue"} */ }</pre> and the
     /// JSON object will change to the following:
     /// <pre>[{"foo":"foovalue"}, {"bar":"barvalue"},
-    /// {"baz","bazvalue"}]</pre> @param root object to search @param
-    /// keyToFind the key to search for. @return a map:
+    /// {"baz","bazvalue"}]</pre>.</summary>
+    /// <param name='root'>The object to search.</param>
+    /// <param name='keyToFind'>The key to search for.</param>
+    /// <returns>A map:
     /// <list>
     /// <item>The keys in the map are JSON Pointers to the objects within
     /// <i>root</i> that contained a key named
@@ -286,18 +319,13 @@ namespace Test {
     /// <item>The values in the map are the values of each of those keys
     /// named
     /// <i>keyToFind</i>.</item></list> The JSON Pointers are relative to
-    /// the root object.</summary>
-    /// <param name='root'>The parameter <paramref name='root'/> is not
-    /// documented yet.</param>
-    /// <param name='keyToFind'>The parameter <paramref name='keyToFind'/>
-    /// is not documented yet.</param>
-    /// <returns>An IDictionary(string, Object) object.</returns>
+    /// the root object.</returns>
     /// <exception cref='ArgumentNullException'>The parameter <paramref
     /// name='root'/> is null.</exception>
-    public static IDictionary<string, Object> GetPointersWithKeyAndRemove(
+    public static IDictionary<string, CBORObject> GetPointersWithKeyAndRemove(
       CBORObject root,
       string keyToFind) {
-      IDictionary<string, Object> list = new Dictionary<string, Object>();
+      IDictionary<string, CBORObject> list = new Dictionary<string, CBORObject>();
       if (root == null) {
         throw new ArgumentNullException(nameof(root));
       }
@@ -306,8 +334,8 @@ namespace Test {
     }
 
     /// <summary>Gets all children of the specified JSON object that
-    /// contain the specified key. The method will remove matching keys. As
-    /// an example, consider this object:
+    /// contain the specified key; the method will not remove matching
+    /// keys. As an example, consider this object:
     /// <pre>[{"key":"value1","foo":"foovalue"},
     /// {"key":"value2","bar":"barvalue"}, {"baz":"bazvalue"}]</pre> If
     /// getPointersToKey is called on this object with a keyToFind called
@@ -315,8 +343,7 @@ namespace Test {
     /// <pre>{ "/0" => "value1", // "/0" points to
     /// {"key":"value1","foo":"foovalue"} "/1" => "value2" // "/1" points
     /// to {"key":"value2","bar":"barvalue"} }</pre> and the JSON object
-    /// will remain unchanged. @param root object to search @param
-    /// keyToFind the key to search for. @return a map:
+    /// will remain unchanged.
     /// <list>
     /// <item>The keys in the map are JSON Pointers to the objects within
     /// <i>root</i> that contained a key named
@@ -327,17 +354,15 @@ namespace Test {
     /// named
     /// <i>keyToFind</i>.</item></list> The JSON Pointers are relative to
     /// the root object.</summary>
-    /// <param name='root'>The parameter <paramref name='root'/> is not
-    /// documented yet.</param>
-    /// <param name='keyToFind'>The parameter <paramref name='keyToFind'/>
-    /// is not documented yet.</param>
-    /// <returns>An IDictionary(string, Object) object.</returns>
+    /// <param name='root'>Object to search.</param>
+    /// <param name='keyToFind'>The key to search for.</param>
+    /// <returns>A map:.</returns>
     /// <exception cref='ArgumentNullException'>The parameter <paramref
     /// name='root'/> is null.</exception>
-    public static IDictionary<string, Object> GetPointersWithKey(
+    public static IDictionary<string, CBORObject> GetPointersWithKey(
       CBORObject root,
       string keyToFind) {
-      IDictionary<string, Object> list = new Dictionary<string, Object>();
+      IDictionary<string, CBORObject> list = new Dictionary<string, CBORObject>();
       if (root == null) {
         throw new ArgumentNullException(nameof(root));
       }
@@ -373,14 +398,14 @@ namespace Test {
       CBORObject root,
       string keyToFind,
       string currentPointer,
-      IDictionary<string, Object> pointerList,
+      IDictionary<string, CBORObject> pointerList,
       bool remove) {
       if (root.Type == CBORType.Map) {
         var rootObj = (CBORObject)root;
         if (rootObj.ContainsKey(keyToFind)) {
           // Key found in this object,
           // add this object's JSON pointer
-          Object pointerKey = rootObj[keyToFind];
+          CBORObject pointerKey = rootObj[keyToFind];
           pointerList.Add(currentPointer, pointerKey);
           // and remove the key from the object
           // if necessary

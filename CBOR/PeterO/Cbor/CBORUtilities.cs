@@ -3,9 +3,8 @@ Written by Peter O.
 Any copyright to this work is released to the Public Domain.
 In case this is not possible, this work is also
 licensed under Creative Commons Zero (CC0):
-http://creativecommons.org/publicdomain/zero/1.0/
-If you like this, you should donate to Peter O.
-at: http://peteroupc.github.io/
+https://creativecommons.org/publicdomain/zero/1.0/
+
  */
 using System;
 using System.Text;
@@ -470,8 +469,10 @@ namespace PeterO.Cbor {
       }
       int c = Math.Min(a.Length, b.Length);
       for (var i = 0; i < c; ++i) {
-        if (a[i] != b[i]) {
-          return (a[i] < b[i]) ? -1 : 1;
+        byte ai = a[i];
+        byte bi = b[i];
+        if (ai != bi) {
+          return ((((int)ai) & 0xff) < (((int)bi) & 0xff)) ? -1 : 1;
         }
       }
       return (a.Length != b.Length) ? ((a.Length < b.Length) ? -1 : 1) : 0;
@@ -488,8 +489,10 @@ namespace PeterO.Cbor {
         return a.Length < b.Length ? -1 : 1;
       }
       for (var i = 0; i < a.Length; ++i) {
-        if (a[i] != b[i]) {
-          return (a[i] < b[i]) ? -1 : 1;
+        byte ai = a[i];
+        byte bi = b[i];
+        if (ai != bi) {
+          return ((((int)ai) & 0xff) < (((int)bi) & 0xff)) ? -1 : 1;
         }
       }
       return 0;
