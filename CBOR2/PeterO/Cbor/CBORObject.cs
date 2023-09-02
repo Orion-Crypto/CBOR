@@ -472,16 +472,25 @@ namespace PeterO.Cbor2
         private readonly object itemValue;
         private readonly int tagHigh;
         private readonly int tagLow;
+        private CBOREncodeOptions options = null;
 
-        internal CBORObject(CBORObject obj, int tagLow, int tagHigh)
+        internal CBORObject(
+            CBORObject obj,
+            int tagLow,
+            int tagHigh,
+            CBOREncodeOptions options = null
+        )
         {
             this.itemtypeValue = CBORObjectTypeTagged;
             this.itemValue = obj;
             this.tagLow = tagLow;
             this.tagHigh = tagHigh;
+
+            if (options != null)
+                this.options = options;
         }
 
-        internal CBORObject(int type, object item)
+        internal CBORObject(int type, object item, CBOREncodeOptions options = null)
         {
 #if DEBUG
             if (type == CBORObjectTypeDouble)
@@ -521,6 +530,9 @@ namespace PeterO.Cbor2
             this.itemValue = item;
             this.tagLow = 0;
             this.tagHigh = 0;
+
+            if (options != null)
+                this.options = options;
         }
 
         /// <summary>Gets the number of keys in this map, or the number of
@@ -3750,7 +3762,7 @@ namespace PeterO.Cbor2
             {
                 throw new ArgumentException("smallTag(" + smallTag + ") is less than 0");
             }
-            return new CBORObject(this, smallTag, 0);
+            return new CBORObject(this, smallTag, 0, this.options);
         }
 
         /// <summary>Generates a CBOR object from an arbitrary object and gives
@@ -3786,6 +3798,20 @@ namespace PeterO.Cbor2
                 throw new ArgumentException("smallTag(" + smallTag + ") is less than 0");
             }
             return FromObject(valueObValue).WithTag(smallTag);
+        }
+
+        /// <summary>Sets the encoding of the CBOR object.</summary>
+        /// <param name='options'>The parameter <paramref
+        /// name='options'/> is a CBOREncodeOptions.</param>
+        /// <returns>A CBOR object.</returns>
+        /// <exception cref='ArgumentException'>The parameter <paramref
+        /// name='options'/> is null.</exception>
+        public CBORObject SetEncoding(CBOREncodeOptions options)
+        {
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+            this.options = options;
+            return this;
         }
 
         /// <summary>Creates a CBOR object from a simple value
@@ -6369,10 +6395,7 @@ namespace PeterO.Cbor2
         /// <returns>A byte array in CBOR format.</returns>
         public byte[] EncodeToBytes()
         {
-            // Normally this function will use the default encoding but Cardano Libraries
-            // such as Aiken and Lucid use Indefinite length arrays by default
-            // return this.EncodeToBytes(CBOREncodeOptions.Default);
-            return this.EncodeToBytes(CBOREncodeOptions.UseIndefiniteLengthArrays);
+            return this.EncodeToBytes(CBOREncodeOptions.Default);
         }
 
         /// <summary>Writes the binary representation of this CBOR object and
@@ -6389,6 +6412,9 @@ namespace PeterO.Cbor2
         /// name='options'/> is null.</exception>
         public byte[] EncodeToBytes(CBOREncodeOptions options)
         {
+            if (this.options != null)
+                options = this.options;
+
             if (options == null)
             {
                 throw new ArgumentNullException(nameof(options));
@@ -9228,7 +9254,7 @@ namespace PeterO.Cbor2
         {
             object thisObj = list;
 
-            if (options.UseIndefLengthArrays && list.Count > 0)
+            if (options.UseIndefLengthArrays)
                 outputStream.WriteByte(0x9F);
             else
                 WritePositiveInt(4, list.Count, outputStream);
@@ -9236,7 +9262,7 @@ namespace PeterO.Cbor2
             foreach (CBORObject i in list)
                 stack = WriteChildObject(thisObj, i, outputStream, stack, options);
 
-            if (options.UseIndefLengthArrays && list.Count > 0)
+            if (options.UseIndefLengthArrays)
                 outputStream.WriteByte(0xFF);
         }
 
