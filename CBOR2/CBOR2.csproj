@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Owners>Peter Occil</Owners>
     <Description></Description>
     <Summary>A C# implementation of Concise Binary Object Representation (CBOR), a general-purpose binary data format defined in RFC 8949. </Summary>
     <Copyright></Copyright>
-    <Authors>CardanoSharp</Authors>
-    <PackageId>CardanoSharp.CBOR</PackageId>
+    <Authors>Orion.CardanoSharp</Authors>
+    <PackageId>Orion.CardanoSharp.CBOR</PackageId>
     <PackageLicenseExpression>CC0-1.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/CardanoSharp/CBOR</PackageProjectUrl>
     <PackageReleaseNotes></PackageReleaseNotes>

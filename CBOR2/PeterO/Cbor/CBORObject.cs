@@ -9260,7 +9260,13 @@ namespace PeterO.Cbor2
                 WritePositiveInt(4, list.Count, outputStream);
 
             foreach (CBORObject i in list)
-                stack = WriteChildObject(thisObj, i, outputStream, stack, options);
+                stack = WriteChildObject(
+                    thisObj,
+                    i,
+                    outputStream,
+                    stack,
+                    i != null && i.options != null ? i.options : options
+                );
 
             if (options.UseIndefLengthArrays)
                 outputStream.WriteByte(0xFF);
